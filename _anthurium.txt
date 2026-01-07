@@ -1,0 +1,348 @@
+require('dotenv').config();
+const { chromium } = require('playwright');
+const fs = require('fs');
+const path = require('path');
+const { google } = require('googleapis');
+
+const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
+const SHEET_NAME = process.env.SHEET_NAME;
+const CONFIG_SHEET = process.env.CONFIG_SHEET || '_config';
+const CREDENTIALS_PATH = path.join(__dirname, process.env.CREDENTIALS_PATH);
+
+const USERNAME = process.env.HOLEX_USERNAME;
+const PASSWORD = process.env.HOLEX_PASSWORD;
+
+const LOGIN_URL = process.env.LOGIN_URL;
+const ANTHURIUM_BASE_URL = process.env.ANTHURIUM_BASE_URL;
+
+const LOG_PATH = path.join(__dirname, process.env.LOG_PATH);
+
+function log(message) {
+  const timestamp = new Date().toISOString();
+  const fullMessage = `[${timestamp}] ${message}\n`;
+  console.log(fullMessage.trim());
+  fs.appendFileSync(LOG_PATH, fullMessage);
+}
+
+function sanitize(text) {
+  return text.replace("â‚¬", "€").replace(/[^\x20-\x7E€]/g, "").trim();
+}
+
+function getUaeTimeFormatted() {
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Dubai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).format(new Date()).replace(',', '');
+}
+
+function getColorNameFromRGB(rgb) {
+  const basicColors = {
+    black: [0, 0, 0], white: [255, 255, 255], red: [255, 0, 0],
+    green: [0, 128, 0], blue: [0, 0, 255], yellow: [255, 255, 0],
+    orange: [255, 165, 0], pink: [255, 192, 203], purple: [128, 0, 128],
+    brown: [165, 42, 42], gray: [128, 128, 128], lightgray: [211, 211, 211],
+    darkgray: [64, 64, 64], cyan: [0, 255, 255], magenta: [255, 0, 255], lime: [0, 255, 0],
+  };
+  const rgbMatch = rgb.match(/\d+/g);
+  if (!rgbMatch || rgbMatch.length < 3) return "Unknown";
+  const [r, g, b] = rgbMatch.map(Number);
+
+  let closestColor = "Unknown", minDistance = Infinity;
+  for (const [name, [cr, cg, cb]] of Object.entries(basicColors)) {
+    const distance = Math.sqrt((r - cr) ** 2 + (g - cg) ** 2 + (b - cb) ** 2);
+    if (distance < minDistance) {
+      minDistance = distance;
+      closestColor = name;
+    }
+  }
+  return closestColor;
+}
+
+async function authorize() {
+  const auth = new google.auth.GoogleAuth({
+    keyFile: CREDENTIALS_PATH,
+    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+  });
+  return await auth.getClient();
+}
+
+async function readPackingDate(authClient) {
+  const sheets = google.sheets({ version: 'v4', auth: authClient });
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${CONFIG_SHEET}!C5`,
+  });
+  return res.data.values?.[0]?.[0] || '';
+}
+
+async function writeHeaders(authClient) {
+  const sheets = google.sheets({ version: 'v4', auth: authClient });
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEET_NAME}!A1:H1`,
+    valueInputOption: 'USER_ENTERED',
+    resource: {
+      values: [["Name", "Image URL", "Origin", "Length", "Color", "Stem Price", "Quantity", "Scraped At"]],
+    },
+  });
+  log("✅ Header row written.");
+}
+
+async function clearSheet(authClient) {
+  const sheets = google.sheets({ version: 'v4', auth: authClient });
+  await sheets.spreadsheets.values.clear({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEET_NAME}!A2:H`,
+  });
+  log("🧹 Sheet cleared.");
+}
+
+async function appendToSheet(authClient, rows) {
+  const sheets = google.sheets({ version: 'v4', auth: authClient });
+  const values = rows.map(({ name, imgUrl, origin, length, color, stemPrice, quantity, scrapedAt }) =>
+    [name, imgUrl, origin, length, color, stemPrice, quantity, scrapedAt]);
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEET_NAME}!A2:H`,
+    valueInputOption: 'USER_ENTERED',
+    resource: { values },
+  });
+  log(`✅ ${rows.length} rows written to sheet.`);
+}
+
+async function appendRawRows(authClient, rawRows) {
+ 
+  const sheets = google.sheets({ version: 'v4', auth: authClient });
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${SHEET_NAME}!A2`,
+    valueInputOption: 'USER_ENTERED',
+    resource: { values: rawRows },
+  });
+}
+
+async function login(page) {
+  log("🔐 Logging in...");
+  await page.goto(LOGIN_URL, { waitUntil: "domcontentloaded" });
+  await page.fill("#j_username", USERNAME);
+  await page.fill("#j_password", PASSWORD);
+  await page.click("button.primary_button");
+  await page.waitForTimeout(5000);
+  log("✅ Logged in.");
+}
+
+async function closePopup(page) {
+  const closeBtn = await page.$("button.popup-close, .modal-close, .close-popup, .fancybox-close");
+  if (closeBtn) {
+    await closeBtn.click();
+    log("🧼 Closed popup.");
+  }
+}
+
+async function selectPackingDate(page, dayToSelect) {
+  log(`📅 Trying to select day ${dayToSelect} from popup...`);
+
+  try {
+    const calendarTrigger = await page.$("button.select_delivery_date");
+    if (calendarTrigger) await calendarTrigger.click();
+
+    await page.waitForSelector("table.table-condensed", { timeout: 5000 });
+
+    const wasClicked = await page.evaluate((day) => {
+      const days = Array.from(document.querySelectorAll("td.day"));
+      for (const td of days) {
+        if (td.textContent.trim() === day) {
+          if (td.classList.contains("disabled")) return "disabled";
+          td.click();
+          return "clicked";
+        }
+      }
+      return "not_found";
+    }, dayToSelect);
+
+    if (wasClicked === "clicked") {
+      await page.click("button.primary_button.confirm_select_date");
+      log("✅ Date selected via popup.");
+      return true;
+    } else if (wasClicked === "disabled") {
+      log("❌ Date is disabled. No products available.");
+      return false;
+    } else {
+      log("⚠️ Date not found in popup.");
+      return null;
+    }
+  } catch {
+    log("❌ Popup calendar not found. Fallback to input calendar.");
+    return null;
+  }
+}
+
+async function fallbackToInlineCalendar(page, fullDate) {
+  const input = await page.$("input.form-control.js-show_date");
+  if (input) {
+    await page.evaluate((date) => {
+      const inputEl = document.querySelector("input.form-control.js-show_date");
+      inputEl.value = date;
+      inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+      inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+    }, fullDate);
+    log(`🗓️ Inline calendar value set via JS: ${fullDate}`);
+  } else {
+    log("⚠️ Inline date input not found.");
+  }
+}
+
+async function autoScroll(page) {
+  let prevHeight = await page.evaluate(() => document.body.scrollHeight);
+  for (let i = 0; i < 20; i++) {
+    await page.evaluate(() => window.scrollBy(0, window.innerHeight));
+    await page.waitForTimeout(1500);
+    const newHeight = await page.evaluate(() => document.body.scrollHeight);
+    if (newHeight === prevHeight) break;
+    prevHeight = newHeight;
+  }
+}
+
+async function scrapeProducts(page) {
+  log("🔎 Scraping product data...");
+  await page.waitForSelector("div.details.thumbnail_desc_section");
+
+  const productCards = await page.$$("div.details.thumbnail_desc_section");
+  log(`🛒 Found ${productCards.length} product cards.`);
+
+  const results = [];
+  const scrapedAt = getUaeTimeFormatted();
+
+  for (let i = 0; i < productCards.length; i++) {
+    const product = productCards[i];
+    log(`\nProcessing product #${i + 1}...`);
+
+    const nameElement = await product.$("div.name_fav span a");
+    const name = nameElement ? sanitize(await nameElement.textContent()) : "N/A";
+
+    const imgElement = await product.$("div.thumnail_section a.thumb img");
+    const imgUrl = imgElement ? await imgElement.getAttribute("src") : "N/A";
+
+    const originElement = await product.$("div.country_icon_outer div.text");
+    const origin = originElement ? sanitize(await originElement.textContent()) : "N/A";
+
+    const lengthElements = await product.$$("ul.classification_attributes_first_row li p");
+    let length = "N/A";
+    for (const el of lengthElements) {
+      const text = sanitize(await el.textContent());
+      if (text.includes("cm")) {
+        length = text;
+        break;
+      }
+    }
+
+    let color = "N/A";
+    const colorElement = await product.$("span.hlx_plp_color");
+    if (colorElement) {
+      const rgb = await colorElement.evaluate(el => window.getComputedStyle(el).getPropertyValue("background-color"));
+      color = getColorNameFromRGB(rgb);
+    }
+
+    const stemPriceElement = await product.$("div.stem_prices span.price_text");
+    const rawPrice = stemPriceElement ? sanitize(await stemPriceElement.textContent()) : "N/A";
+    const stemPrice = rawPrice === "N/A"
+      ? "N/A"
+      : rawPrice.replace(/[^\d.,]/g, '').replace(',', '.');
+
+    const quantityElement = await product.$("span.stock_unit.pieces_unit.make_button[data-name^='noOfStemsUnit']");
+    const quantity = quantityElement ? sanitize(await quantityElement.textContent()) : "N/A";
+
+    if (stemPrice !== "N/A") {
+      results.push({
+        name,
+        imgUrl,
+        origin,
+        length,
+        color,
+        stemPrice,
+        quantity,
+        scrapedAt,
+      });
+
+      log(`✅ Scraped: ${name} | Price: ${stemPrice}`);
+    } else {
+      log(`⚠️ Skipped due to missing stem price.`);
+    }
+  }
+
+  return results;
+}
+
+(async () => {
+  const browser = await chromium.launch({ headless: true });
+  const page = await browser.newPage();
+  page.setDefaultTimeout(30000);
+  const authClient = await authorize();
+
+  try {
+    log("🚀 Script started.");
+
+    const fullPackingDate = await readPackingDate(authClient); 
+    const day = fullPackingDate.split("/")[1];
+
+    await login(page);
+    await page.goto(ANTHURIUM_BASE_URL, { waitUntil: "domcontentloaded" });
+    await closePopup(page);
+
+    const popupStatus = await selectPackingDate(page, day);
+
+    
+    try {
+      const continueButton = await page.$('.js-continue'); 
+      if (continueButton) {
+        log("🔘 'Continue' popup detected. Clicking...");
+        await continueButton.click();
+        await page.waitForLoadState('domcontentloaded');
+        log("✅ Continued after popup.");
+      } else {
+        log("ℹ️ No 'Continue' popup appeared.");
+      }
+    } catch (err) {
+      log("⚠️ Error while handling 'Continue' popup: " + err.message);
+    }
+
+    if (popupStatus === false) {
+      await writeHeaders(authClient);
+      await clearSheet(authClient);
+      log(`📭 No products due to disabled date: ${fullPackingDate}.`);
+      await appendRawRows(authClient, [
+        [`❗ NO PRODUCTS FOUND FOR SELECTED DATE: ${fullPackingDate}. PLEASE TRY AGAIN WITH A DIFFERENT DATE.`],
+      ]);
+      return;
+    } else if (popupStatus === null) {
+      await fallbackToInlineCalendar(page, fullPackingDate);
+    }
+
+    await autoScroll(page);
+    const products = await scrapeProducts(page);
+
+    await writeHeaders(authClient);
+    await clearSheet(authClient);
+
+    if (products.length > 0) {
+      await appendToSheet(authClient, products);
+    } else {
+      log(`📭 No products found after scraping for date: ${fullPackingDate}.`);
+      await appendRawRows(authClient, [
+        [`❗ NO PRODUCTS FOUND FOR SELECTED DATE: ${fullPackingDate}. PLEASE TRY AGAIN WITH A DIFFERENT DATE.`],
+      ]);
+    }
+
+    log("🏁 Script completed.");
+  } catch (err) {
+    log(`❌ ERROR: ${err.message}`);
+  } finally {
+    await browser.close();
+  }
+})();
