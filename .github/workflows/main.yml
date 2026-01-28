@@ -35,31 +35,34 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --force
 
-      # 5️⃣ Run scraper script
+      # 5️⃣ Create Google service account file from secret
+      - name: Create Google credentials
+        run: |
+          echo '${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}' > service-account.json
+
+      # 6️⃣ Run scraper script
       - name: Run scraper script
         env:
           HOLEX_USERNAME: ${{ secrets.HOLEX_USERNAME }}
           HOLEX_PASSWORD: ${{ secrets.HOLEX_PASSWORD }}
           SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
           SHEET_NAME: ${{ secrets.SHEET_NAME }}
-          CREDENTIALS_PATH: ${{ secrets.CREDENTIALS_PATH }}
           LOGIN_URL: ${{ secrets.LOGIN_URL }}
-          LOG_PATH: 'scraper.log'
+          LOG_PATH: scraper.log
           PACKING_DATE: ${{ github.event.inputs.packing_date }}
           URLS: ${{ github.event.inputs.urls }}
+          GOOGLE_APPLICATION_CREDENTIALS: service-account.json
         run: node scrap.js
 
-      # 6️⃣ Trigger Apps Script WebApps
+      # 7️⃣ Trigger Apps Script WebApps
       - name: Trigger Apps Script WebApps
         run: |
-           # First function
-           curl -L --post301 --post302 -X POST \
+          curl -L --post301 --post302 -X POST \
             "https://script.google.com/macros/s/AKfycbyuL6Me8hEP1DReBwiUy-juvHQ-DNjXBwFjqUC3yMnRpC83eEDobckL6nhQVcZyc-Ds/exec" \
-             -d "key=B7vN20HxKpL9"
+            -d "key=B7vN20HxKpL9"
 
-              sleep 10
+          sleep 10
 
-           # Second function
-           curl -L --post301 --post302 -X POST \
-           "https://script.google.com/macros/s/AKfycbyuL6Me8hEP1DReBwiUy-juvHQ-DNjXBwFjqUC3yMnRpC83eEDobckL6nhQVcZyc-Ds/exec" \
+          curl -L --post301 --post302 -X POST \
+            "https://script.google.com/macros/s/AKfycbyuL6Me8hEP1DReBwiUy-juvHQ-DNjXBwFjqUC3yMnRpC83eEDobckL6nhQVcZyc-Ds/exec" \
             -d "key=SIJ9de0sadST"
