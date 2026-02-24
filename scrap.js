@@ -229,7 +229,7 @@ async function login(page) {
   await page.fill('#j_username', USERNAME);
   await page.fill('#j_password', PASSWORD);
   await page.click('button.primary_button');
-  await page.waitForTimeout(5000);
+  await page.waitForTimeout(12000);
   log('✅ Logged in.');
 }
 
