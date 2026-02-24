@@ -277,7 +277,7 @@ async function selectPackingDate(page, dateStr) {
   await calendarIcon.click({ timeout: 5000 });
   log('🟢 Calendar icon clicked.');
 
-  await page.waitForSelector('div.js-custom_datepicker table', { timeout: 5000 });
+  await page.waitForSelector('div.js-custom_datepicker table', { timeout: 15000 });
 
   async function getCalendarMonthYear() {
     const header = await page.$('div.js-custom_datepicker th.picker-switch');
