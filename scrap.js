@@ -537,7 +537,7 @@ async function scrapeAllPages(page) {
     // Launch browser
     browser = await chromium.launch({ headless: true });
     const page = await browser.newPage();
-    page.setDefaultTimeout(90000);
+    page.setDefaultTimeout(900000);
 
     log('🚀 Script started.');
 
