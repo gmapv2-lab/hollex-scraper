@@ -225,75 +225,14 @@ async function writeProducts(authClient, rows, isFirstUrl = false) {
 // ===== PLAYWRIGHT HELPERS =====
 async function login(page) {
   log('🔐 Logging in...');
-
-  await page.goto(LOGIN_URL, {
-    waitUntil: 'domcontentloaded',
-    timeout: 90000,
-  });
-
-  await page.waitForLoadState('domcontentloaded');
-  await page.waitForTimeout(5000);
-
-  log(`🌐 Login page URL: ${page.url()}`);
-  log(`📄 Login page title: ${await page.title()}`);
-
-  await page.screenshot({ path: path.join(__dirname, 'debug-login-page.png'), fullPage: true });
-  log('📸 Saved screenshot: debug-login-page.png');
-
-  // Wait for Cloudflare challenge to pass
-  const maxWaitMs = 120000;
-  const start = Date.now();
-
-  while (Date.now() - start < maxWaitMs) {
-    const title = await page.title().catch(() => '');
-    const hasUsername = await page.locator('#j_username').count().catch(() => 0);
-    const hasPassword = await page.locator('#j_password').count().catch(() => 0);
-    const cfFrame = page.frames().some(f => f.url().includes('challenges.cloudflare.com'));
-
-    log(`⏳ Checking page... title="${title}" username=${hasUsername} password=${hasPassword} cf=${cfFrame}`);
-
-    if (hasUsername > 0 && hasPassword > 0) {
-      log('✅ Login form is available.');
-      break;
-    }
-
-    await page.waitForTimeout(5000);
-  }
-
-  const username = page.locator('#j_username');
-  const password = page.locator('#j_password');
-
-  const usernameCount = await username.count();
-  const passwordCount = await password.count();
-
-  if (usernameCount === 0 || passwordCount === 0) {
-    const html = await page.content();
-    fs.writeFileSync(path.join(__dirname, 'debug-login-page.html'), html, 'utf8');
-    await page.screenshot({ path: path.join(__dirname, 'debug-login-blocked.png'), fullPage: true });
-    throw new Error('Blocked by Cloudflare / login form did not appear');
-  }
-
-  await username.waitFor({ state: 'visible', timeout: 30000 });
-  await username.fill(USERNAME);
-
-  await password.waitFor({ state: 'visible', timeout: 30000 });
-  await password.fill(PASSWORD);
-
-  const loginButton = page.locator('button.primary_button').first();
-  if (!(await loginButton.count())) {
-    throw new Error('Login button not found: button.primary_button');
-  }
-
-  await loginButton.click();
-  await page.waitForLoadState('domcontentloaded');
+  await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded' });
+  await page.fill('#j_username', USERNAME);
+  await page.fill('#j_password', PASSWORD);
+  await page.click('button.primary_button');
   await page.waitForTimeout(12000);
-
-  log(`✅ Login submitted. Current URL: ${page.url()}`);
-  log(`📄 After login title: ${await page.title()}`);
-
-  await page.screenshot({ path: path.join(__dirname, 'debug-after-login.png'), fullPage: true });
-  log('📸 Saved screenshot: debug-after-login.png');
+  log('✅ Logged in.');
 }
+
 async function closePopup(page) {
   const closeBtn = await page.$(
     '#cboxClose, .fancybox-close, .popup-close, .modal-close, .close-popup'
@@ -349,17 +288,14 @@ async function selectPackingDate(page, dateStr) {
     month: 'long',
     year: 'numeric',
   });
-
   for (let i = 0; i < 12; i++) {
     const currentHeader = await getCalendarMonthYear();
     if (currentHeader === targetMonthYear) break;
-
     const nextBtn = await page.$('div.js-custom_datepicker th.next');
     if (!nextBtn) {
       log(`❌ Cannot find next month button. Calendar stuck at ${currentHeader}`);
       return false;
     }
-
     await nextBtn.click();
     await page.waitForTimeout(500);
   }
@@ -370,7 +306,7 @@ async function selectPackingDate(page, dateStr) {
     return false;
   }
 
-  const classList = (await dateCell.getAttribute('class')) || '';
+  const classList = await dateCell.getAttribute('class');
   if (classList.includes('disabled')) {
     log(`❌ Date ${formattedDate} is disabled and cannot be selected.`);
     return false;
@@ -407,21 +343,17 @@ async function scrapeProducts(page) {
       const tag = sanitize(
         await product.$eval('div.thumnail_section span', (el) => el.textContent).catch(() => 'N/A')
       );
-
       let imgUrl = await product
         .$eval('div.thumnail_section img', (el) => el.src)
         .catch(() => 'N/A');
-
-      if (imgUrl !== 'N/A' && imgUrl.includes('image=/https')) {
+      if (imgUrl !== 'N/A' && imgUrl.includes('image=/https'))
         imgUrl = imgUrl.replace('image=/https', 'image=https');
-      }
 
       const origin = sanitize(
         await product
           .$eval('div.country_icon_outer div.text', (el) => el.textContent)
           .catch(() => 'N/A')
       );
-
       let color = 'N/A';
       const colorElement = await product.$('span.hlx_plp_color');
       if (colorElement) {
@@ -431,19 +363,17 @@ async function scrapeProducts(page) {
         color = getColorNameFromRGB(rgb);
       }
 
-      let length = 'N/A';
-      let weight = 'N/A';
-      let certificate = 'N/A';
-      let diameter = 'N/A';
-      let noofbuds = 'N/A';
-
+      let length = 'N/A',
+        weight = 'N/A',
+        certificate = 'N/A',
+        diameter = 'N/A',
+        noofbuds = 'N/A';
       const attrBlock = await product.$('.classification_attributes_block');
       if (attrBlock) {
         const items = await attrBlock.$$('li');
         for (const li of items) {
           const icon = await li.$('i');
           const text = sanitize(await li.$eval('p', (el) => el.textContent).catch(() => ''));
-
           if (icon) {
             const classList = await icon.getAttribute('class');
             if (classList.includes('length_icon')) length = text || 'N/A';
@@ -477,7 +407,6 @@ async function scrapeProducts(page) {
         let rawQty = sanitize(await quantityDiv.evaluate((el) => el.textContent)).trim();
         rawQty = rawQty.replace(/assortment/i, '').trim();
         available_quantity = rawQty || 'N/A';
-
         if (packDiv) {
           const spans = await packDiv.$$('span');
           const unitName = spans[0]
@@ -487,24 +416,19 @@ async function scrapeProducts(page) {
             ? sanitize(await spans[1].evaluate((el) => el.textContent))
             : '';
           first_quantity = `${unitName} (${unitCode}) ${available_quantity}`.trim();
-        } else {
-          first_quantity = available_quantity;
-        }
+        } else first_quantity = available_quantity;
       }
 
       const BASE = 'https://shop.holex.com';
       let productUrl = 'N/A';
-
       try {
         const rel = await product
           .$eval('div.name_fav a', (el) => el.getAttribute('href'))
           .catch(() => null);
-
-        if (rel) {
+        if (rel)
           productUrl = /^https?:\/\//i.test(rel.trim())
             ? rel.trim()
             : BASE.replace(/\/+$/, '') + '/' + rel.trim().replace(/^\/+/, '');
-        }
       } catch (err) {
         productUrl = 'N/A';
       }
@@ -512,29 +436,22 @@ async function scrapeProducts(page) {
       function cleanQuantity(text) {
         return text ? text.replace(/^x\s*/, '').trim() : 'N/A';
       }
-
       const rows = await product.$$('div.input_row');
-      const prices = [];
-
+      let prices = [];
       for (const row of rows) {
         const className = await row.evaluate((el) => el.className);
         const inputReadonly = await row.$('input[readonly]');
         if (className.includes('disabled') || inputReadonly) continue;
-
         const priceEl = await row.$('span.price_text');
         let price = 'N/A';
-
-        if (priceEl) {
+        if (priceEl)
           price = sanitize(
             await priceEl.evaluate((el) => el.getAttribute('from-price') || el.textContent)
           ).replace(',', '.');
-        }
-
         const quantityEl = await row.$('span.stock_unit.pieces_unit');
         const qty = quantityEl
           ? cleanQuantity(await quantityEl.evaluate((el) => el.textContent))
           : 'N/A';
-
         prices.push({ price, quantity: qty });
       }
 
@@ -572,7 +489,6 @@ async function scrapeProducts(page) {
       log(`❌ Error scraping product: ${err.message}`);
     }
   }
-
   return results;
 }
 
@@ -584,19 +500,16 @@ async function scrapeAllPages(page) {
   while (true) {
     log(`📄 Scraping page ${pageNum}...`);
     await autoScroll(page);
-
     const products = await scrapeProducts(page);
     allProducts = allProducts.concat(products);
 
     const nextBtn = await page.$('li.pagination-next:not(.disabled) a[rel="next"]');
     if (!nextBtn) break;
-
     const nextUrl = await nextBtn.getAttribute('href');
     if (!nextUrl) break;
 
     const fullUrl = `${ANTHURIUM_BASE_URL}${nextUrl}`;
     log(`➡️ Moving to: ${fullUrl}`);
-
     await page.goto(fullUrl, { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(12000);
     pageNum++;
@@ -608,45 +521,35 @@ async function scrapeAllPages(page) {
 
 // ===== MAIN SCRIPT =====
 (async () => {
-  const startTime = Date.now();
+  const startTime = Date.now(); // ⏱️ Start timer
 
   let browser = null;
   let authClient = null;
   let totalProductsScraped = 0;
 
   try {
+    // Initialize Google Sheets client early for status updates
     authClient = await authorize();
+
+    // Update status to "Running"
     await updateStatus(authClient, 'running', startTime);
 
-    browser = await chromium.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    });
-
-    const page = await browser.newPage({
-      viewport: { width: 1440, height: 900 },
-    });
-
+    // Launch browser
+    browser = await chromium.launch({ headless: true });
+    const page = await browser.newPage();
     page.setDefaultTimeout(90000);
-
-    await page.setExtraHTTPHeaders({
-      'Accept-Language': 'en-US,en;q=0.9',
-    });
 
     log('🚀 Script started.');
 
     const packingDate = await readPackingDate(authClient);
-
     await login(page);
-
     await page.goto(`${ANTHURIUM_BASE_URL}/en_US/All-products/Flowers/c/Flowers`, {
       waitUntil: 'domcontentloaded',
-      timeout: 90000,
     });
-
     await page.waitForTimeout(3000);
     await closePopup(page);
 
+    // ===== SELECT DATE WITH SAFETY CHECK =====
     const dateSelected = await selectPackingDate(page, packingDate);
     if (!dateSelected) {
       log(`⚠️ Packing date ${packingDate} is disabled. Writing "No products found" and exiting.`);
@@ -662,7 +565,6 @@ async function scrapeAllPages(page) {
       .split(',')
       .map((u) => u.trim())
       .filter(Boolean);
-
     if (!urls.length) {
       log('⚠️ No URLs provided. Exiting.');
       await updateStatus(authClient, 'no-urls', startTime);
@@ -676,26 +578,20 @@ async function scrapeAllPages(page) {
 
     for (const url of urls) {
       log(`➡️ Scraping URL: ${url}`);
-
-      await page.goto(url, {
-        waitUntil: 'domcontentloaded',
-        timeout: 90000,
-      });
-
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
       await page.waitForTimeout(3000);
       await closePopup(page);
 
-      const products = await scrapeAllPages(page);
+      let products = await scrapeAllPages(page);
       totalProductsScraped += products.length;
-
       await writeProducts(authClient, products, isFirstUrl);
       isFirstUrl = false;
-
       log(`🟢 Finished scraping URL: ${url} (${products.length} products).`);
     }
 
     log(`🎉 All URLs processed. Total products: ${totalProductsScraped}`);
 
+    // Update status with success or no-products
     if (totalProductsScraped > 0) {
       await updateStatus(authClient, 'success', startTime);
     } else {
@@ -706,6 +602,7 @@ async function scrapeAllPages(page) {
   } catch (err) {
     log(`❌ ERROR: ${err.message}`);
 
+    // Update status with error
     if (authClient) {
       try {
         await updateStatus(authClient, 'error', startTime, err.message?.substring(0, 50));
