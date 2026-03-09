@@ -240,63 +240,51 @@ async function login(page) {
   await page.screenshot({ path: path.join(__dirname, 'debug-login-page.png'), fullPage: true });
   log('📸 Saved screenshot: debug-login-page.png');
 
-  const frames = page.frames();
-  for (const frame of frames) {
-    log(`🪟 Frame detected: ${frame.url()}`);
-  }
+  // Wait for Cloudflare challenge to pass
+  const maxWaitMs = 120000;
+  const start = Date.now();
 
-  let username = page.locator('#j_username');
-  let password = page.locator('#j_password');
+  while (Date.now() - start < maxWaitMs) {
+    const title = await page.title().catch(() => '');
+    const hasUsername = await page.locator('#j_username').count().catch(() => 0);
+    const hasPassword = await page.locator('#j_password').count().catch(() => 0);
+    const cfFrame = page.frames().some(f => f.url().includes('challenges.cloudflare.com'));
 
-  let usernameCount = await username.count();
-  let passwordCount = await password.count();
+    log(`⏳ Checking page... title="${title}" username=${hasUsername} password=${hasPassword} cf=${cfFrame}`);
 
-  log(`🔎 Main page username count: ${usernameCount}`);
-  log(`🔎 Main page password count: ${passwordCount}`);
-
-  if (usernameCount === 0 || passwordCount === 0) {
-    for (const frame of frames) {
-      const fUser = frame.locator('#j_username');
-      const fPass = frame.locator('#j_password');
-
-      const fUserCount = await fUser.count();
-      const fPassCount = await fPass.count();
-
-      log(`🔎 Frame ${frame.url()} username count: ${fUserCount}`);
-      log(`🔎 Frame ${frame.url()} password count: ${fPassCount}`);
-
-      if (fUserCount > 0 && fPassCount > 0) {
-        log(`✅ Found login fields inside frame: ${frame.url()}`);
-        username = fUser;
-        password = fPass;
-        usernameCount = fUserCount;
-        passwordCount = fPassCount;
-        break;
-      }
+    if (hasUsername > 0 && hasPassword > 0) {
+      log('✅ Login form is available.');
+      break;
     }
+
+    await page.waitForTimeout(5000);
   }
+
+  const username = page.locator('#j_username');
+  const password = page.locator('#j_password');
+
+  const usernameCount = await username.count();
+  const passwordCount = await password.count();
 
   if (usernameCount === 0 || passwordCount === 0) {
     const html = await page.content();
     fs.writeFileSync(path.join(__dirname, 'debug-login-page.html'), html, 'utf8');
-    log('❌ Login fields not found. Saved HTML: debug-login-page.html');
-    throw new Error('Login fields #j_username / #j_password not found on loaded page');
+    await page.screenshot({ path: path.join(__dirname, 'debug-login-blocked.png'), fullPage: true });
+    throw new Error('Blocked by Cloudflare / login form did not appear');
   }
 
-  await username.waitFor({ state: 'visible', timeout: 90000 });
+  await username.waitFor({ state: 'visible', timeout: 30000 });
   await username.fill(USERNAME);
 
-  await password.waitFor({ state: 'visible', timeout: 90000 });
+  await password.waitFor({ state: 'visible', timeout: 30000 });
   await password.fill(PASSWORD);
 
   const loginButton = page.locator('button.primary_button').first();
-
   if (!(await loginButton.count())) {
     throw new Error('Login button not found: button.primary_button');
   }
 
   await loginButton.click();
-
   await page.waitForLoadState('domcontentloaded');
   await page.waitForTimeout(12000);
 
@@ -306,7 +294,6 @@ async function login(page) {
   await page.screenshot({ path: path.join(__dirname, 'debug-after-login.png'), fullPage: true });
   log('📸 Saved screenshot: debug-after-login.png');
 }
-
 async function closePopup(page) {
   const closeBtn = await page.$(
     '#cboxClose, .fancybox-close, .popup-close, .modal-close, .close-popup'
