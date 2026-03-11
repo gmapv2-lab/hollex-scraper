@@ -1,5 +1,8 @@
 require('dotenv').config();
-const { chromium } = require('playwright');
+const { chromium } = require('playwright-extra');
+const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+
+chromium.use(StealthPlugin());
 const fs = require('fs');
 const path = require('path');
 const { google } = require('googleapis');
@@ -595,7 +598,15 @@ async function scrapeAllPages(page) {
     authClient = await authorize();
     await updateStatus(authClient, 'running', startTime);
 
-    browser = await chromium.launch({ headless: true });
+  browser = await chromium.launch({
+  headless: true,
+  args: [
+    '--disable-blink-features=AutomationControlled',
+    '--no-sandbox',
+    '--disable-setuid-sandbox',
+    '--disable-dev-shm-usage'
+  ]
+});
 
     let context;
     if (fs.existsSync(SESSION_PATH)) {
