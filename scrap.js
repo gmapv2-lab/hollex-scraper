@@ -225,12 +225,106 @@ async function writeProducts(authClient, rows, isFirstUrl = false) {
 // ===== PLAYWRIGHT HELPERS =====
 async function login(page) {
   log('🔐 Logging in...');
-  await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded' });
-  await page.fill('#j_username', USERNAME);
-  await page.fill('#j_password', PASSWORD);
-  await page.click('button.primary_button');
+
+  await page.goto(LOGIN_URL, {
+    waitUntil: 'domcontentloaded',
+    timeout: 120000,
+  });
+
+  await page.waitForTimeout(5000);
+
+  const debugDir = path.join(__dirname, 'debug');
+  if (!fs.existsSync(debugDir)) fs.mkdirSync(debugDir, { recursive: true });
+
+  log(`🌐 URL after goto: ${page.url()}`);
+  log(`📄 Title after goto: ${await page.title()}`);
+
+  const html = await page.content();
+  fs.writeFileSync(path.join(debugDir, 'login-page.html'), html);
+
+  const bodyText = await page.locator('body').innerText().catch(() => '');
+  fs.writeFileSync(path.join(debugDir, 'login-page.txt'), bodyText || '');
+
+  await page.screenshot({
+    path: path.join(debugDir, 'login-page.png'),
+    fullPage: true,
+  });
+
+  log(`🧾 Body text sample: ${(bodyText || '').slice(0, 1000)}`);
+
+  const frames = page.frames();
+  log(`🪟 Frames found: ${frames.length}`);
+  for (const frame of frames) {
+    log(`🪟 Frame URL: ${frame.url()}`);
+  }
+
+  const challengeWords = [
+    'just a moment',
+    'checking your browser',
+    'verify you are human',
+    'access denied',
+    'attention required',
+    'cloudflare',
+    'captcha',
+  ];
+
+  const lowerBody = (bodyText || '').toLowerCase();
+  const foundChallenge = challengeWords.find(word => lowerBody.includes(word));
+
+  if (foundChallenge) {
+    throw new Error(`Security / bot challenge detected: ${foundChallenge}`);
+  }
+
+  let usernameLocator = page.locator('#j_username');
+
+  if ((await usernameLocator.count()) === 0) {
+    for (const frame of frames) {
+      try {
+        const frameLocator = frame.locator('#j_username');
+        if ((await frameLocator.count()) > 0) {
+          log(`✅ Username field found inside iframe: ${frame.url()}`);
+          await frameLocator.first().waitFor({ state: 'visible', timeout: 30000 });
+          await frameLocator.first().fill(USERNAME);
+
+          const passwordLocator = frame.locator('#j_password');
+          await passwordLocator.first().waitFor({ state: 'visible', timeout: 30000 });
+          await passwordLocator.first().fill(PASSWORD);
+
+          const loginButton = frame.locator('button.primary_button');
+          await loginButton.first().click();
+
+          await page.waitForTimeout(12000);
+          log('✅ Logged in through iframe.');
+          return;
+        }
+      } catch (err) {
+        log(`ℹ️ Frame check skipped: ${err.message}`);
+      }
+    }
+  }
+
+  await usernameLocator.first().waitFor({ state: 'visible', timeout: 30000 });
+  await usernameLocator.first().fill(USERNAME);
+
+  const passwordLocator = page.locator('#j_password');
+  await passwordLocator.first().waitFor({ state: 'visible', timeout: 30000 });
+  await passwordLocator.first().fill(PASSWORD);
+
+  const loginButton = page.locator('button.primary_button');
+  await loginButton.first().waitFor({ state: 'visible', timeout: 30000 });
+  await loginButton.first().click();
+
   await page.waitForTimeout(12000);
-  log('✅ Logged in.');
+
+  await page.screenshot({
+    path: path.join(debugDir, 'after-login-click.png'),
+    fullPage: true,
+  });
+
+  log(`🌐 URL after login click: ${page.url()}`);
+  log(`📄 Title after login click: ${await page.title()}`);
+
+  log('✅ Login step completed.');
 }
 
 async function closePopup(page) {
@@ -535,10 +629,24 @@ async function scrapeAllPages(page) {
     await updateStatus(authClient, 'running', startTime);
 
     // Launch browser
-    browser = await chromium.launch({ headless: true });
-    const page = await browser.newPage();
-    page.setDefaultTimeout(900000);
+    browser = await chromium.launch({
+  headless: true,
+  args: [
+    '--disable-blink-features=AutomationControlled',
+    '--no-sandbox',
+    '--disable-setuid-sandbox',
+  ],
+});
 
+const context = await browser.newContext({
+  viewport: { width: 1366, height: 768 },
+  userAgent:
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
+  locale: 'en-US',
+});
+
+const page = await context.newPage();
+page.setDefaultTimeout(120000);
     log('🚀 Script started.');
 
     const packingDate = await readPackingDate(authClient);
