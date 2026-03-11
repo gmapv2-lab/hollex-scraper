@@ -106,8 +106,10 @@ function detectChallenge(text = '') {
     'attention required',
     'cloudflare',
     'captcha',
+    'performing security verification',
+    'malicious bots',
   ];
-  return challengeWords.find(word => lower.includes(word)) || null;
+  return challengeWords.find((word) => lower.includes(word)) || null;
 }
 
 // ===== GOOGLE SHEETS =====
@@ -179,28 +181,26 @@ async function writeHeaders(authClient) {
     range: `${SHEET_NAME}!A1:R1`,
     valueInputOption: 'USER_ENTERED',
     resource: {
-      values: [
-        [
-          'Name',
-          'Tag',
-          'Image URL',
-          'Origin',
-          'Length',
-          'Diameter',
-          'No of Buds',
-          'Weight',
-          'Certificate',
-          'Farm',
-          'Color',
-          'First Price',
-          'Packing Value',
-          'Available Quantity',
-          'Product URL',
-          'Second Price',
-          'Third Price',
-          'Time',
-        ],
-      ],
+      values: [[
+        'Name',
+        'Tag',
+        'Image URL',
+        'Origin',
+        'Length',
+        'Diameter',
+        'No of Buds',
+        'Weight',
+        'Certificate',
+        'Farm',
+        'Color',
+        'First Price',
+        'Packing Value',
+        'Available Quantity',
+        'Product URL',
+        'Second Price',
+        'Third Price',
+        'Time',
+      ]],
     },
   });
   log('✅ Header row written.');
@@ -641,7 +641,7 @@ async function scrapeAllPages(page) {
     const fullUrl = `${ANTHURIUM_BASE_URL}${nextUrl}`;
     log(`➡️ Moving to: ${fullUrl}`);
 
-    await page.goto(fullUrl, { waitUntil: 'domcontentloaded' });
+    await page.goto(fullUrl, { waitUntil: 'domcontentloaded', timeout: 120000 });
     await page.waitForTimeout(12000);
     pageNum++;
   }
@@ -655,12 +655,15 @@ async function scrapeAllPages(page) {
   const startTime = Date.now();
 
   let browser = null;
+  let context = null;
   let authClient = null;
   let totalProductsScraped = 0;
 
   try {
     authClient = await authorize();
     await updateStatus(authClient, 'running', startTime);
+
+    const debugDir = ensureDebugDir();
 
     browser = await chromium.launch({
       headless: true,
@@ -671,11 +674,15 @@ async function scrapeAllPages(page) {
       ],
     });
 
-    const context = await browser.newContext({
+    context = await browser.newContext({
       viewport: { width: 1366, height: 768 },
       userAgent:
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
       locale: 'en-US',
+      recordVideo: {
+        dir: debugDir,
+        size: { width: 1366, height: 768 },
+      },
     });
 
     const page = await context.newPage();
@@ -692,6 +699,7 @@ async function scrapeAllPages(page) {
       timeout: 120000,
     });
     await page.waitForTimeout(3000);
+    await saveDebugState(page, 'flowers-page');
     await closePopup(page);
 
     const dateSelected = await selectPackingDate(page, packingDate);
@@ -756,6 +764,11 @@ async function scrapeAllPages(page) {
 
     process.exitCode = 1;
   } finally {
+    if (context) {
+      await context.close();
+      log('🎥 Browser context closed.');
+    }
+
     if (browser) {
       await browser.close();
       log('🔒 Browser closed.');
