@@ -226,11 +226,15 @@ async function writeProducts(authClient, rows, isFirstUrl = false) {
 async function login(page) {
   log('🔐 Logging in...');
   await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(10000);
   await page.fill('#j_username', USERNAME);
+  await page.waitForTimeout(10000);
   await page.fill('#j_password', PASSWORD);
+  await page.waitForTimeout(10000);
   await page.click('button.primary_button');
   await page.waitForTimeout(12000);
   log('✅ Logged in.');
+  await page.waitForTimeout(10000);
 }
 
 async function closePopup(page) {
