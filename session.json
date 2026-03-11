@@ -1,0 +1,332 @@
+{
+  "cookies": [
+    {
+      "name": "holex-profile.consent.given",
+      "value": "false",
+      "domain": "shop.holex.com",
+      "path": "/",
+      "expires": 1807782336.089679,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "anonymous-consents",
+      "value": "%5B%7B%22templateCode%22%3A%22Cookies%22%2C%22templateVersion%22%3A1%2C%22consentState%22%3Anull%7D%2C%7B%22templateCode%22%3A%22PROFILE%22%2C%22templateVersion%22%3A1%2C%22consentState%22%3Anull%7D%5D",
+      "domain": "shop.holex.com",
+      "path": "/",
+      "expires": 1804758362.640612,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "cookie-notification",
+      "value": "NOT_ACCEPTED",
+      "domain": "shop.holex.com",
+      "path": "/",
+      "expires": 1807782336.089743,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "ROUTE",
+      "value": ".accstorefront-7d6ff499ff-h5dgv",
+      "domain": "shop.holex.com",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "YSC",
+      "value": "QbUO5Kn3J9s",
+      "domain": ".youtube.com",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "VISITOR_INFO1_LIVE",
+      "value": "VDY1E9iCr4g",
+      "domain": ".youtube.com",
+      "path": "/",
+      "expires": 1788774339.17694,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "VISITOR_PRIVACY_METADATA",
+      "value": "CgJBRRIEGgAgLw%3D%3D",
+      "domain": ".youtube.com",
+      "path": "/",
+      "expires": 1788774339.176962,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "__Secure-YNID",
+      "value": "16.YT=eu7-MZQrSNab46uRVJsnrsAipHfGfVN5PInqVY8cRMj2x_vKUvQsBRIhFW4Wv1ksxhWaNCd7Uupu14_JI9OTcNDoEOtOvqwxuCHDAW8IaVwvWzLjBe_wr5AJBUFtdlpetKZTJLw4pkvqfZv2tYikgNyC-aly3MF7pDWQT5NPtGV1-rOJq2l6v_P-lPfXYtuhDwzwtjkRidMJjBi6ahp35ViknTHWIZcGH5uS8oGtzAYAHaJ8ND34tho1nhVIxOKYWd2IZ5YMVrz1GxZoapZDbWMFbSe_SvfnGUZvfBX1Ug_muhugy3zhNBrKWmLMddec14bdACD8Dp_9VcAroNMsUg",
+      "domain": ".youtube.com",
+      "path": "/",
+      "expires": 1788774338.708835,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "__Secure-ROLLOUT_TOKEN",
+      "value": "CM-syait-4rfigEQmfCj_MeXkwMYodCx_MeXkwM%3D",
+      "domain": ".youtube.com",
+      "path": "/",
+      "expires": 1788774338.70895,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "cf_clearance",
+      "value": "KN.rkui2SHvFSwxEWa3rRzuAXubnLzvzuU_fpKo.veI-1773222338-1.2.1.1-GtzPupmWDuGcTgvWncAdmWvnqE_Ma.ZRb08O.7R79wWoowH4cDnR_T9DffjrRiB7lD67YBQ7674lI2JXcegwk35IciUrktk7uv9DGnQ1AadEBHFB0Gl3FT5BOx68x3hjS6i78l3UVG0CcnHyq8bOu4hcIFPjOMXJfH.v549FPAiCeE2rsR1tcNTj6qgbFA.UIOSPT2s8n3vTKSddrE6DnRKm.8BFdxd7swFzPOytREo",
+      "domain": ".holex.com",
+      "path": "/",
+      "expires": 1804758338.962283,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "CLID",
+      "value": "4f8d0ce3f4e54c88bfbeeaad4050e882.20260311.20270311",
+      "domain": "www.clarity.ms",
+      "path": "/",
+      "expires": 1804758339.297222,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "_ga",
+      "value": "GA1.1.97765194.1773222339",
+      "domain": ".holex.com",
+      "path": "/",
+      "expires": 1807782438.500344,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_clck",
+      "value": "19ozo1z%5E2%5Eg49%5E0%5E2261",
+      "domain": ".holex.com",
+      "path": "/",
+      "expires": 1804758340,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "SM",
+      "value": "T",
+      "domain": ".c.clarity.ms",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "MUID",
+      "value": "097F10A87FDE67BC0E0307B17BDE6939",
+      "domain": ".clarity.ms",
+      "path": "/",
+      "expires": 1806918340.740727,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "acceleratorSecureGUID",
+      "value": "5b4768b79490d6b3b92871e1ef6ee6c2f9354c06",
+      "domain": "shop.holex.com",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "JSESSIONID",
+      "value": "Y6-41248106-6026-46f2-aaee-caa15954931b.accstorefront-7d6ff499ff-h5dgv",
+      "domain": "shop.holex.com",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "holex-cart",
+      "value": "0b18408f-49ed-49c2-aef1-f822fbf65b2c",
+      "domain": "shop.holex.com",
+      "path": "/",
+      "expires": 1807782439.539274,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "_vwo_uuid_v2",
+      "value": "D906D248D6851BD20A0F93C35B26EC5AF|a4862bc91e23780dece8eb5cebc296c9",
+      "domain": ".holex.com",
+      "path": "/",
+      "expires": 1804844837,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_vwo_uuid",
+      "value": "D906D248D6851BD20A0F93C35B26EC5AF",
+      "domain": ".holex.com",
+      "path": "/",
+      "expires": 1804779366,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_vwo_ds",
+      "value": "3%241773222413%3A86.41980946%3A%3A%3A%3A%3A1773222413%3A1773222413%3A1",
+      "domain": ".holex.com",
+      "path": "/",
+      "expires": 1775814414,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_vis_opt_s",
+      "value": "1%7C",
+      "domain": ".holex.com",
+      "path": "/",
+      "expires": 1781862414,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_vis_opt_test_cookie",
+      "value": "1",
+      "domain": ".holex.com",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_clsk",
+      "value": "vvoibq%5E1773222415339%5E3%5E1%5Ee.clarity.ms%2Fcollect",
+      "domain": ".holex.com",
+      "path": "/",
+      "expires": 1773308815,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_vwo_sn",
+      "value": "0%3A2%3A%3A%3A%3A%3A19",
+      "domain": ".holex.com",
+      "path": "/",
+      "expires": 1773224240,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_ga_K7PMTRMRDV",
+      "value": "GS2.1.s1773222339$o1$g1$t1773222440$j33$l0$h0",
+      "domain": ".holex.com",
+      "path": "/",
+      "expires": 1807782440.689029,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_ga_458H8WQTNW",
+      "value": "GS2.1.s1773222339$o1$g1$t1773222440$j33$l0$h0",
+      "domain": ".holex.com",
+      "path": "/",
+      "expires": 1807782440.692865,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_dd_s",
+      "value": "rum=2&id=4acddd38-7ba5-4f77-9040-d15ce786d5c5&created=1773222338041&expire=1773223339730",
+      "domain": "shop.holex.com",
+      "path": "/",
+      "expires": 1773223340,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Strict"
+    }
+  ],
+  "origins": [
+    {
+      "origin": "https://shop.holex.com",
+      "localStorage": [
+        {
+          "name": "_vwo_eventHistSession",
+          "value": "{\"vwo_pageView\":[{\"page\":{\"url\":\"https://shop.holex.com/\"},\"VWO\":{\"firedTime\":1773222414442},\"type\":\"vwo_pageView\"},{\"page\":{\"url\":\"https://shop.holex.com/en_US/All-products/Flowers/c/Flowers\"},\"VWO\":{\"firedTime\":1773222437391},\"type\":\"vwo_pageView\"}]}"
+        },
+        {
+          "name": "vwoSn",
+          "value": "{\"cu\":\"https%3A%2F%2Fshop.holex.com%2F\",\"r\":\"https%3A%2F%2Fshop.holex.com%2Fen_US%2Flogin\",\"lt\":\"1773222439\",\"v\":\"0.1.0\"}"
+        },
+        {
+          "name": "_vwo_eventHist",
+          "value": "{\"vwo_pageView\":[{\"page\":{\"url\":\"https://shop.holex.com/\"},\"VWO\":{\"firedTime\":1773222414442},\"type\":\"vwo_pageView\",\"ts\":1773222414442},{\"page\":{\"url\":\"https://shop.holex.com/en_US/All-products/Flowers/c/Flowers\"},\"VWO\":{\"firedTime\":1773222437391},\"type\":\"vwo_pageView\",\"ts\":1773222437391}]}"
+        },
+        {
+          "name": "_vwo_1021363_config",
+          "value": "{}"
+        }
+      ]
+    },
+    {
+      "origin": "https://www.youtube.com",
+      "localStorage": [
+        {
+          "name": "yt.innertube::nextId",
+          "value": "{\"data\":2,\"expiration\":1773308739185,\"creation\":1773222339185}"
+        },
+        {
+          "name": "yt-remote-connected-devices",
+          "value": "{\"data\":\"[]\",\"expiration\":1773308739416,\"creation\":1773222339416}"
+        },
+        {
+          "name": "ytidb::LAST_RESULT_ENTRY_KEY",
+          "value": "{\"data\":{\"hasSucceededOnce\":true},\"expiration\":1775814342725,\"creation\":1773222342725}"
+        },
+        {
+          "name": "yt.innertube::requests",
+          "value": "{\"data\":{\"1\":{\"method\":\"log_event\",\"request\":{\"context\":{\"client\":{\"hl\":\"en\",\"gl\":\"AE\",\"clientName\":56,\"clientVersion\":\"1.20260310.01.00\",\"configInfo\":{\"appInstallData\":\"CMHzxM0GEKbr0BwQ_LLOHBD79tAcEMTSgBMQwY_QHBCM6c8cEK7WzxwQ3NTQHBC9tq4FEJ3QgBMQxvnQHBCHrM4cEMbGzxwQ3rzOHBCBzc4cEPG00BwQ0MKAExDM364FENPu0BwQu9nOHBDU_9AcEImwzhwQns-AExC9irAFEOCCgBMQlP6wBRCUg9AcEIv3zxwQvKTQHBC9mbAFEJn60BwQ6-bQHBDBqtAcEMz50BwQuOTOHBDfgNEcEPCcsAUQmvnQHBCTmYATENvPgBMQndCwBRDa984cEParsAUQyPfPHBCUttAcEJmNsQUQprbQHBDZhdAcEJjd0BwQlffPHBDU9tAcKkBDQU1TS2hVaC1acS1ETWVVRXBVQ25BNzlGWmtGNUxMd0N6S2dyQVFEemY4Rnk3Y0cteWEyNUFhZmlRMGRCdz09MAA%3D\"},\"userAgent\":\"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36\",\"screenDensityFloat\":\"1.25\",\"connectionType\":\"CONN_CELLULAR_4G\",\"browserName\":\"Chrome\",\"browserVersion\":\"138.0.0.0\",\"osName\":\"Windows\",\"osVersion\":\"10.0\",\"platform\":\"DESKTOP\"},\"thirdParty\":{\"embedUrl\":\"https://shop.holex.com/\"}},\"events\":[{\"eventTimeMs\":1773222338852,\"latencyActionTicked\":{\"tickName\":\"ep_init_eps\",\"clientActionNonce\":\"YrR9jfpKmaLzeCr3\"},\"context\":{\"lastActivityMs\":\"-1\"}},{\"eventTimeMs\":1773222338853,\"latencyActionTicked\":{\"tickName\":\"ep_init_epe\",\"clientActionNonce\":\"YrR9jfpKmaLzeCr3\"},\"context\":{\"lastActivityMs\":\"-1\"}},{\"eventTimeMs\":1773222339104,\"latencyActionTicked\":{\"tickName\":\"pe\",\"clientActionNonce\":\"YrR9jfpKmaLzeCr3\"},\"context\":{\"lastActivityMs\":\"-1\"}},{\"eventTimeMs\":1773222339105,\"latencyActionTicked\":{\"tickName\":\"ep_init_wes\",\"clientActionNonce\":\"YrR9jfpKmaLzeCr3\"},\"context\":{\"lastActivityMs\":\"-1\"}},{\"eventTimeMs\":1773222338708,\"latencyActionTicked\":{\"tickName\":\"srt\",\"clientActionNonce\":\"YrR9jfpKmaLzeCr3\"},\"context\":{\"lastActivityMs\":\"-1\"}},{\"eventTimeMs\":1773222338502,\"latencyActionBaselined\":{\"clientActionNonce\":\"YrR9jfpKmaLzeCr3\"},\"context\":{\"lastActivityMs\":\"-1\"}},{\"eventTimeMs\":1773222338504,\"latencyActionTicked\":{\"tickName\":\"nreqs\",\"clientActionNonce\":\"YrR9jfpKmaLzeCr3\"},\"context\":{\"lastActivityMs\":\"-1\"}},{\"eventTimeMs\":1773222338708,\"latencyActionTicked\":{\"tickName\":\"nress\",\"clientActionNonce\":\"YrR9jfpKmaLzeCr3\"},\"context\":{\"lastActivityMs\":\"-1\"}},{\"eventTimeMs\":1773222338783,\"latencyActionTicked\":{\"tickName\":\"nrese\",\"clientActionNonce\":\"YrR9jfpKmaLzeCr3\"},\"context\":{\"lastActivityMs\":\"-1\"}},{\"eventTimeMs\":1773222338722,\"latencyActionTicked\":{\"tickName\":\"wffs\",\"clientActionNonce\":\"YrR9jfpKmaLzeCr3\"},\"context\":{\"lastActivityMs\":\"-1\"}},{\"eventTimeMs\":1773222338785,\"latencyActionTicked\":{\"tickName\":\"wffe\",\"clientActionNonce\":\"YrR9jfpKmaLzeCr3\"},\"context\":{\"lastActivityMs\":\"-1\"}},{\"eventTimeMs\":1773222338781,\"latencyActionTicked\":{\"tickName\":\"rsf_pj\",\"clientActionNonce\":\"YrR9jfpKmaLzeCr3\"},\"context\":{\"lastActivityMs\":\"-1\"}},{\"eventTimeMs\":1773222338994,\"latencyActionTicked\":{\"tickName\":\"rse_pj\",\"clientActionNonce\":\"YrR9jfpKmaLzeCr3\"},\"context\":{\"lastActivityMs\":\"-1\"}},{\"eventTimeMs\":1773222338780,\"latencyActionTicked\":{\"tickName\":\"rsf_pej\",\"clientActionNonce\":\"YrR9jfpKmaLzeCr3\"},\"context\":{\"lastActivityMs\":\"-1\"}},{\"eventTimeMs\":1773222338817,\"latencyActionTicked\":{\"tickName\":\"rse_pej\",\"clientActionNonce\":\"YrR9jfpKmaLzeCr3\"},\"context\":{\"lastActivityMs\":\"-1\"}},{\"eventTimeMs\":1773222338719,\"latencyActionTicked\":{\"tickName\":\"rsf_pc\",\"clientActionNonce\":\"YrR9jfpKmaLzeCr3\"},\"context\":{\"lastActivityMs\":\"-1\"}},{\"eventTimeMs\":1773222338798,\"latencyActionTicked\":{\"tickName\":\"rse_pc\",\"clientActionNonce\":\"YrR9jfpKmaLzeCr3\"},\"context\":{\"lastActivityMs\":\"-1\"}},{\"eventTimeMs\":1773222338780,\"latencyActionTicked\":{\"tickName\":\"rsf_ecj\",\"clientActionNonce\":\"YrR9jfpKmaLzeCr3\"},\"context\":{\"lastActivityMs\":\"-1\"}},{\"eventTimeMs\":1773222338843,\"latencyActionTicked\":{\"tickName\":\"rse_ecj\",\"clientActionNonce\":\"YrR9jfpKmaLzeCr3\"},\"context\":{\"lastActivityMs\":\"-1\"}},{\"eventTimeMs\":1773222339108,\"latencyActionInfo\":{\"isNavigation\":true,\"actionType\":\"LATENCY_ACTION_VIDEO_PREVIEW\",\"httpProtocol\":\"h2\",\"transportProtocol\":\"tcp\",\"isVisible\":true,\"loadType\":\"cold\",\"clientActionNonce\":\"YrR9jfpKmaLzeCr3\"},\"context\":{\"lastActivityMs\":\"-1\"}},{\"eventTimeMs\":1773222339111,\"latencyActionTicked\":{\"tickName\":\"ep_init_wee\",\"clientActionNonce\":\"YrR9jfpKmaLzeCr3\"},\"context\":{\"lastActivityMs\":\"-1\"}},{\"eventTimeMs\":1773222339111,\"latencyActionInfo\":{\"serverTimeMs\":45,\"clientActionNonce\":\"YrR9jfpKmaLzeCr3\"},\"context\":{\"lastActivityMs\":\"-1\"}},{\"eventTimeMs\":1773222339131,\"screenCreated\":{\"csn\":\"DBjZ5A76lgipg9FZ\",\"pageVe\":{\"veType\":16623,\"youtubeData\":{\"servletData\":{\"serializedServletEventId\":\"wTmxae7dLPyx1LsP3PXiiAM\"}}}},\"context\":{\"lastActivityMs\":\"15\"}},{\"eventTimeMs\":1773222339131,\"latencyActionInfo\":{\"clientScreenNonce\":\"DBjZ5A76lgipg9FZ\",\"clientActionNonce\":\"YrR9jfpKmaLzeCr3\"},\"context\":{\"lastActivityMs\":\"16\"}},{\"eventTimeMs\":1773222339131,\"screenCreated\":{\"csn\":\"yn3FNCQVSvBKkH9F\",\"pageVe\":{\"veType\":32594},\"implicitGesture\":{\"parentCsn\":\"DBjZ5A76lgipg9FZ\",\"gesturedVe\":{\"veType\":16623},\"gestureType\":\"INTERACTION_LOGGING_GESTURE_TYPE_AUTOMATED\"}},\"context\":{\"lastActivityMs\":\"16\"}},{\"eventTimeMs\":1773222339131,\"visualElementHidden\":{\"csn\":\"DBjZ5A76lgipg9FZ\",\"ve\":{\"veType\":16623},\"eventType\":16},\"context\":{\"lastActivityMs\":\"16\"}},{\"eventTimeMs\":1773222339131,\"latencyActionInfo\":{\"clientScreenNonce\":\"yn3FNCQVSvBKkH9F\",\"clientActionNonce\":\"YrR9jfpKmaLzeCr3\"},\"context\":{\"lastActivityMs\":\"16\"}},{\"eventTimeMs\":1773222339132,\"visualElementAttached\":{\"csn\":\"yn3FNCQVSvBKkH9F\",\"parentVe\":{\"veType\":32594},\"childVes\":[{\"trackingParams\":\"CAAQru4BIhMI1vWy_MeXkwMV8YuMCB1Wjw2Q\"}]},\"context\":{\"lastActivityMs\":\"16\"}},{\"eventTimeMs\":1773222339134,\"latencyActionTicked\":{\"tickName\":\"fs\",\"clientActionNonce\":\"YrR9jfpKmaLzeCr3\"},\"context\":{\"lastActivityMs\":\"18\"}},{\"eventTimeMs\":1773222339140,\"latencyActionTicked\":{\"tickName\":\"ftr\",\"clientActionNonce\":\"YrR9jfpKmaLzeCr3\"},\"context\":{\"lastActivityMs\":\"25\"}},{\"eventTimeMs\":1773222339142,\"visualElementAttached\":{\"csn\":\"yn3FNCQVSvBKkH9F\",\"parentVe\":{\"veType\":32594},\"childVes\":[{\"veType\":28240,\"veCounter\":3}]},\"context\":{\"lastActivityMs\":\"26\"}},{\"eventTimeMs\":1773222339142,\"visualElementShown\":{\"csn\":\"yn3FNCQVSvBKkH9F\",\"ve\":{\"veType\":28240,\"veCounter\":3},\"eventType\":1},\"context\":{\"lastActivityMs\":\"26\"}},{\"eventTimeMs\":1773222339142,\"visualElementAttached\":{\"csn\":\"yn3FNCQVSvBKkH9F\",\"parentVe\":{\"veType\":32594},\"childVes\":[{\"veType\":28239,\"veCounter\":4}]},\"context\":{\"lastActivityMs\":\"26\"}},{\"eventTimeMs\":1773222339142,\"visualElementShown\":{\"csn\":\"yn3FNCQVSvBKkH9F\",\"ve\":{\"veType\":28239,\"veCounter\":4},\"eventType\":1},\"context\":{\"lastActivityMs\":\"26\"}},{\"eventTimeMs\":1773222339149,\"visualElementAttached\":{\"csn\":\"yn3FNCQVSvBKkH9F\",\"parentVe\":{\"veType\":32594},\"childVes\":[{\"veType\":139117,\"veCounter\":17}]},\"context\":{\"lastActivityMs\":\"34\"}},{\"eventTimeMs\":1773222339149,\"visualElementShown\":{\"csn\":\"yn3FNCQVSvBKkH9F\",\"ve\":{\"veType\":139117,\"veCounter\":17},\"eventType\":1},\"context\":{\"lastActivityMs\":\"34\"}},{\"eventTimeMs\":1773222339152,\"visualElementAttached\":{\"csn\":\"yn3FNCQVSvBKkH9F\",\"parentVe\":{\"veType\":32594},\"childVes\":[{\"veType\":36842,\"veCounter\":19}]},\"context\":{\"lastActivityMs\":\"36\"}},{\"eventTimeMs\":1773222339152,\"visualElementShown\":{\"csn\":\"yn3FNCQVSvBKkH9F\",\"ve\":{\"veType\":36842,\"veCounter\":19},\"eventType\":1},\"context\":{\"lastActivityMs\":\"36\"}},{\"eventTimeMs\":1773222339153,\"visualElementAttached\":{\"csn\":\"yn3FNCQVSvBKkH9F\",\"parentVe\":{\"veType\":32594},\"childVes\":[{\"veType\":127299,\"veCounter\":22}]},\"context\":{\"lastActivityMs\":\"38\"}},{\"eventTimeMs\":1773222339153,\"visualElementShown\":{\"csn\":\"yn3FNCQVSvBKkH9F\",\"ve\":{\"veType\":127299,\"veCounter\":22},\"eventType\":1},\"context\":{\"lastActivityMs\":\"38\"}},{\"eventTimeMs\":1773222339154,\"visualElementAttached\":{\"csn\":\"yn3FNCQVSvBKkH9F\",\"parentVe\":{\"veType\":32594},\"childVes\":[{\"veType\":28663,\"veCounter\":23}]},\"context\":{\"lastActivityMs\":\"38\"}},{\"eventTimeMs\":1773222339154,\"visualElementShown\":{\"csn\":\"yn3FNCQVSvBKkH9F\",\"ve\":{\"veType\":28663,\"veCounter\":23},\"eventType\":1},\"context\":{\"lastActivityMs\":\"38\"}},{\"eventTimeMs\":1773222339154,\"visualElementHidden\":{\"csn\":\"yn3FNCQVSvBKkH9F\",\"ve\":{\"veType\":28666,\"veCounter\":24},\"eventType\":8},\"context\":{\"lastActivityMs\":\"39\"}},{\"eventTimeMs\":1773222339160,\"visualElementAttached\":{\"csn\":\"yn3FNCQVSvBKkH9F\",\"parentVe\":{\"veType\":32594},\"childVes\":[{\"veType\":23851,\"veCounter\":7}]},\"context\":{\"lastActivityMs\":\"44\"}},{\"eventTimeMs\":1773222339160,\"visualElementShown\":{\"csn\":\"yn3FNCQVSvBKkH9F\",\"ve\":{\"veType\":23851,\"veCounter\":7},\"eventType\":1},\"context\":{\"lastActivityMs\":\"44\"}},{\"eventTimeMs\":1773222339160,\"visualElementAttached\":{\"csn\":\"yn3FNCQVSvBKkH9F\",\"parentVe\":{\"veType\":32594},\"childVes\":[{\"veType\":36925,\"veCounter\":5}]},\"context\":{\"lastActivityMs\":\"44\"}},{\"eventTimeMs\":1773222339160,\"visualElementShown\":{\"csn\":\"yn3FNCQVSvBKkH9F\",\"ve\":{\"veType\":36925,\"veCounter\":5},\"eventType\":1},\"context\":{\"lastActivityMs\":\"44\"}},{\"eventTimeMs\":1773222339160,\"visualElementAttached\":{\"csn\":\"yn3FNCQVSvBKkH9F\",\"parentVe\":{\"veType\":32594},\"childVes\":[{\"veType\":16499,\"veCounter\":36}]},\"context\":{\"lastActivityMs\":\"44\"}},{\"eventTimeMs\":1773222339160,\"visualElementShown\":{\"csn\":\"yn3FNCQVSvBKkH9F\",\"ve\":{\"veType\":16499,\"veCounter\":36},\"eventType\":1},\"context\":{\"lastActivityMs\":\"44\"}},{\"eventTimeMs\":1773222339162,\"latencyActionTicked\":{\"tickName\":\"ep_init_pr\",\"clientActionNonce\":\"YrR9jfpKmaLzeCr3\"},\"context\":{\"lastActivityMs\":\"46\"}},{\"eventTimeMs\":1773222339173,\"latencyActionInfo\":{\"clientPlaybackNonce\":\"6KmM-8RuHrkaxGzU\",\"clientActionNonce\":\"YrR9jfpKmaLzeCr3\"},\"context\":{\"lastActivityMs\":\"57\"}},{\"eventTimeMs\":1773222339182,\"latencyActionTicked\":{\"tickName\":\"mesv_s\",\"clientActionNonce\":\"YrR9jfpKmaLzeCr3\"},\"context\":{\"lastActivityMs\":\"67\"}},{\"eventTimeMs\":1773222339183,\"finalPayload\":{\"csn\":\"yn3FNCQVSvBKkH9F\"},\"context\":{\"lastActivityMs\":\"68\"}}],\"serializedClientEventId\":{\"serializedEventId\":\"wTmxae7dLPyx1LsP3PXiiAM\",\"clientCounter\":\"4798\"}},\"authState\":{\"X-Goog-Visitor-Id\":\"CgtWRFkxRTlpQ3I0ZyjB88TNBjIKCgJBRRIEGgAgL2LfAgrcAjE2LllUPWV1Ny1NWlFyU05hYjQ2dVJWSnNucnNBaXBIZkdmVk41UElucVZZOGNSTWoyeF92S1V2UXNCUkloRlc0V3Yxa3N4aFdhTkNkN1V1cHUxNF9KSTlPVGNORG9FT3RPdnF3eHVDSERBVzhJYVZ3dld6TGpCZV93cjVBSkJVRnRkbHBldEtaVEpMdzRwa3ZxZlp2MnRZaWtnTnlDLWFseTNNRjdwRFdRVDVOUHRHVjEtck9KcTJsNnZfUC1sUGZYWXR1aER3end0amtSaWRNSmpCaTZhaHAzNVZpa25USFdJWmNHSDV1UzhvR3R6QVlBSGFKOE5EMzR0aG8xbmhWSXhPS1lXZDJJWjVZTVZyejFHeFpvYXBaRGJXTUZiU2VfU3ZmbkdVWnZmQlgxVWdfbXVodWd5M3poTkJyS1dtTE1kZGVjMTRiZEFDRDhEcF85VmNBcm9OTXNVZw%3D%3D\"},\"requestTime\":1773222339185}},\"expiration\":1773308739185,\"creation\":1773222339185}"
+        },
+        {
+          "name": "yt-remote-device-id",
+          "value": "{\"data\":\"e0993cf4-43f7-41e5-8a4f-ae9eaf8b32a0\",\"expiration\":1804758339174,\"creation\":1773222339174}"
+        }
+      ]
+    }
+  ]
+}
