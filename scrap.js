@@ -14,7 +14,8 @@ const PASSWORD = process.env.HOLEX_PASSWORD;
 const LOGIN_URL = process.env.LOGIN_URL;
 const ANTHURIUM_BASE_URL = process.env.ANTHURIUM_BASE_URL;
 const LOG_PATH = path.join(__dirname, process.env.LOG_PATH || 'scraper.log');
-const STATUS_CELL = 'F5'; // Status cell in _config sheet
+const STATUS_CELL = 'F5';
+const SESSION_PATH = path.join(__dirname, 'session.json');
 
 // ===== UTILITY FUNCTIONS =====
 function log(message) {
@@ -47,7 +48,6 @@ function getUaeTimeFormatted() {
     .replace(',', '');
 }
 
-// --- Format runtime (ms) as "42s" or "2m 13s" or "1h 5m 20s" ---
 function formatRuntime(ms) {
   const totalSeconds = Math.floor(ms / 1000);
   const hours = Math.floor(totalSeconds / 3600);
@@ -78,7 +78,6 @@ async function authorize() {
   return await auth.getClient();
 }
 
-// Update status in Google Sheet with runtime
 async function updateStatus(authClient, status, startTime, errorMessage) {
   const sheets = google.sheets({ version: 'v4', auth: authClient });
 
@@ -187,10 +186,13 @@ async function writeProducts(authClient, rows, isFirstUrl = false) {
 
   const values = rows.map((p) => {
     if (p.name && p.name.startsWith('No products found')) return [p.name];
+
     const secondPriceCombined =
       p.secondPrice && p.second_quantity ? `${p.secondPrice} × ${p.second_quantity}` : 'N/A';
+
     const thirdPriceCombined =
       p.thirdPrice && p.third_quantity ? `${p.thirdPrice} × ${p.third_quantity}` : 'N/A';
+
     return [
       p.name || 'N/A',
       p.tag || 'N/A',
@@ -219,6 +221,7 @@ async function writeProducts(authClient, rows, isFirstUrl = false) {
     valueInputOption: 'USER_ENTERED',
     resource: { values },
   });
+
   log(`✅ Wrote ${rows.length} rows starting at row ${startRow}.`);
 }
 
@@ -249,6 +252,7 @@ async function closePopup(page) {
 
 async function autoScroll(page) {
   let prevHeight = await page.evaluate(() => document.body.scrollHeight);
+
   for (let i = 0; i < 20; i++) {
     await page.evaluate(() => window.scrollBy(0, window.innerHeight));
     await page.waitForTimeout(1500);
@@ -256,7 +260,35 @@ async function autoScroll(page) {
     if (newHeight === prevHeight) break;
     prevHeight = newHeight;
   }
+
   log('✅ Scrolling complete.');
+}
+
+async function isLoggedIn(page) {
+  try {
+    await page.goto(`${ANTHURIUM_BASE_URL}/en_US/All-products/Flowers/c/Flowers`, {
+      waitUntil: 'domcontentloaded',
+    });
+    await page.waitForTimeout(5000);
+
+    const currentUrl = page.url();
+    const pageText = await page.textContent('body').catch(() => '');
+
+    if (
+      currentUrl.includes('/login') ||
+      currentUrl.includes('j_spring_security_check') ||
+      pageText.includes('Performing security verification') ||
+      pageText.includes('This website uses a security service') ||
+      (await page.$('#j_username'))
+    ) {
+      return false;
+    }
+
+    return true;
+  } catch (err) {
+    log(`⚠️ Login check failed: ${err.message}`);
+    return false;
+  }
 }
 
 // ===== SELECT PACKING DATE =====
@@ -278,6 +310,7 @@ async function selectPackingDate(page, dateStr) {
     log('❌ Calendar icon not found!');
     return false;
   }
+
   await calendarIcon.click({ timeout: 5000 });
   log('🟢 Calendar icon clicked.');
 
@@ -292,14 +325,17 @@ async function selectPackingDate(page, dateStr) {
     month: 'long',
     year: 'numeric',
   });
+
   for (let i = 0; i < 12; i++) {
     const currentHeader = await getCalendarMonthYear();
     if (currentHeader === targetMonthYear) break;
+
     const nextBtn = await page.$('div.js-custom_datepicker th.next');
     if (!nextBtn) {
       log(`❌ Cannot find next month button. Calendar stuck at ${currentHeader}`);
       return false;
     }
+
     await nextBtn.click();
     await page.waitForTimeout(500);
   }
@@ -311,7 +347,7 @@ async function selectPackingDate(page, dateStr) {
   }
 
   const classList = await dateCell.getAttribute('class');
-  if (classList.includes('disabled')) {
+  if (classList && classList.includes('disabled')) {
     log(`❌ Date ${formattedDate} is disabled and cannot be selected.`);
     return false;
   }
@@ -344,20 +380,25 @@ async function scrapeProducts(page) {
       const name = sanitize(
         await product.$eval('div.name_fav span a', (el) => el.textContent).catch(() => 'N/A')
       );
+
       const tag = sanitize(
         await product.$eval('div.thumnail_section span', (el) => el.textContent).catch(() => 'N/A')
       );
+
       let imgUrl = await product
         .$eval('div.thumnail_section img', (el) => el.src)
         .catch(() => 'N/A');
-      if (imgUrl !== 'N/A' && imgUrl.includes('image=/https'))
+
+      if (imgUrl !== 'N/A' && imgUrl.includes('image=/https')) {
         imgUrl = imgUrl.replace('image=/https', 'image=https');
+      }
 
       const origin = sanitize(
         await product
           .$eval('div.country_icon_outer div.text', (el) => el.textContent)
           .catch(() => 'N/A')
       );
+
       let color = 'N/A';
       const colorElement = await product.$('span.hlx_plp_color');
       if (colorElement) {
@@ -367,17 +408,19 @@ async function scrapeProducts(page) {
         color = getColorNameFromRGB(rgb);
       }
 
-      let length = 'N/A',
-        weight = 'N/A',
-        certificate = 'N/A',
-        diameter = 'N/A',
-        noofbuds = 'N/A';
+      let length = 'N/A';
+      let weight = 'N/A';
+      let certificate = 'N/A';
+      let diameter = 'N/A';
+      let noofbuds = 'N/A';
+
       const attrBlock = await product.$('.classification_attributes_block');
       if (attrBlock) {
         const items = await attrBlock.$$('li');
         for (const li of items) {
           const icon = await li.$('i');
           const text = sanitize(await li.$eval('p', (el) => el.textContent).catch(() => ''));
+
           if (icon) {
             const classList = await icon.getAttribute('class');
             if (classList.includes('length_icon')) length = text || 'N/A';
@@ -392,6 +435,7 @@ async function scrapeProducts(page) {
       const farmElement = await product.$(
         'div.classification_attributes_block.labels_attr div.classification_label_attributes'
       );
+
       if (farmElement) {
         farm = await farmElement
           .evaluate((el) => {
@@ -411,6 +455,7 @@ async function scrapeProducts(page) {
         let rawQty = sanitize(await quantityDiv.evaluate((el) => el.textContent)).trim();
         rawQty = rawQty.replace(/assortment/i, '').trim();
         available_quantity = rawQty || 'N/A';
+
         if (packDiv) {
           const spans = await packDiv.$$('span');
           const unitName = spans[0]
@@ -419,8 +464,11 @@ async function scrapeProducts(page) {
           const unitCode = spans[1]
             ? sanitize(await spans[1].evaluate((el) => el.textContent))
             : '';
+
           first_quantity = `${unitName} (${unitCode}) ${available_quantity}`.trim();
-        } else first_quantity = available_quantity;
+        } else {
+          first_quantity = available_quantity;
+        }
       }
 
       const BASE = 'https://shop.holex.com';
@@ -429,10 +477,12 @@ async function scrapeProducts(page) {
         const rel = await product
           .$eval('div.name_fav a', (el) => el.getAttribute('href'))
           .catch(() => null);
-        if (rel)
+
+        if (rel) {
           productUrl = /^https?:\/\//i.test(rel.trim())
             ? rel.trim()
             : BASE.replace(/\/+$/, '') + '/' + rel.trim().replace(/^\/+/, '');
+        }
       } catch (err) {
         productUrl = 'N/A';
       }
@@ -440,22 +490,28 @@ async function scrapeProducts(page) {
       function cleanQuantity(text) {
         return text ? text.replace(/^x\s*/, '').trim() : 'N/A';
       }
+
       const rows = await product.$$('div.input_row');
-      let prices = [];
+      const prices = [];
+
       for (const row of rows) {
         const className = await row.evaluate((el) => el.className);
         const inputReadonly = await row.$('input[readonly]');
         if (className.includes('disabled') || inputReadonly) continue;
+
         const priceEl = await row.$('span.price_text');
         let price = 'N/A';
-        if (priceEl)
+        if (priceEl) {
           price = sanitize(
             await priceEl.evaluate((el) => el.getAttribute('from-price') || el.textContent)
           ).replace(',', '.');
+        }
+
         const quantityEl = await row.$('span.stock_unit.pieces_unit');
         const qty = quantityEl
           ? cleanQuantity(await quantityEl.evaluate((el) => el.textContent))
           : 'N/A';
+
         prices.push({ price, quantity: qty });
       }
 
@@ -493,6 +549,7 @@ async function scrapeProducts(page) {
       log(`❌ Error scraping product: ${err.message}`);
     }
   }
+
   return results;
 }
 
@@ -504,16 +561,19 @@ async function scrapeAllPages(page) {
   while (true) {
     log(`📄 Scraping page ${pageNum}...`);
     await autoScroll(page);
+
     const products = await scrapeProducts(page);
     allProducts = allProducts.concat(products);
 
     const nextBtn = await page.$('li.pagination-next:not(.disabled) a[rel="next"]');
     if (!nextBtn) break;
+
     const nextUrl = await nextBtn.getAttribute('href');
     if (!nextUrl) break;
 
     const fullUrl = `${ANTHURIUM_BASE_URL}${nextUrl}`;
     log(`➡️ Moving to: ${fullUrl}`);
+
     await page.goto(fullUrl, { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(12000);
     pageNum++;
@@ -525,42 +585,62 @@ async function scrapeAllPages(page) {
 
 // ===== MAIN SCRIPT =====
 (async () => {
-  const startTime = Date.now(); // ⏱️ Start timer
+  const startTime = Date.now();
 
   let browser = null;
   let authClient = null;
   let totalProductsScraped = 0;
 
   try {
-    // Initialize Google Sheets client early for status updates
     authClient = await authorize();
-
-    // Update status to "Running"
     await updateStatus(authClient, 'running', startTime);
 
-    // Launch browser
     browser = await chromium.launch({ headless: true });
-    const page = await browser.newPage();
+
+    let context;
+    if (fs.existsSync(SESSION_PATH)) {
+      log('✅ Using saved login session.');
+      context = await browser.newContext({
+        storageState: SESSION_PATH,
+      });
+    } else {
+      log('⚠️ No saved session found. Starting fresh browser context.');
+      context = await browser.newContext();
+    }
+
+    const page = await context.newPage();
     page.setDefaultTimeout(900000);
 
     log('🚀 Script started.');
 
     const packingDate = await readPackingDate(authClient);
-    await login(page);
+
+    let loggedIn = await isLoggedIn(page);
+
+    if (!loggedIn) {
+      log('🔐 Saved session missing or expired. Logging in again...');
+      await login(page);
+      await context.storageState({ path: SESSION_PATH });
+      log('💾 Session saved.');
+      loggedIn = await isLoggedIn(page);
+    }
+
+    if (!loggedIn) {
+      throw new Error('Login failed or session is still blocked by security verification.');
+    }
+
     await page.goto(`${ANTHURIUM_BASE_URL}/en_US/All-products/Flowers/c/Flowers`, {
       waitUntil: 'domcontentloaded',
     });
     await page.waitForTimeout(3000);
     await closePopup(page);
 
-    // ===== SELECT DATE WITH SAFETY CHECK =====
     const dateSelected = await selectPackingDate(page, packingDate);
     if (!dateSelected) {
       log(`⚠️ Packing date ${packingDate} is disabled. Writing "No products found" and exiting.`);
       await writeHeaders(authClient);
       await writeProducts(authClient, [{ name: `No products found {${packingDate}}` }], true);
       await updateStatus(authClient, 'date-disabled', startTime);
-      await browser.close();
       log(`🏁 Script finished. Runtime: ${formatRuntime(Date.now() - startTime)}`);
       return;
     }
@@ -569,10 +649,10 @@ async function scrapeAllPages(page) {
       .split(',')
       .map((u) => u.trim())
       .filter(Boolean);
+
     if (!urls.length) {
       log('⚠️ No URLs provided. Exiting.');
       await updateStatus(authClient, 'no-urls', startTime);
-      await browser.close();
       log(`🏁 Script finished. Runtime: ${formatRuntime(Date.now() - startTime)}`);
       return;
     }
@@ -586,16 +666,16 @@ async function scrapeAllPages(page) {
       await page.waitForTimeout(3000);
       await closePopup(page);
 
-      let products = await scrapeAllPages(page);
+      const products = await scrapeAllPages(page);
       totalProductsScraped += products.length;
       await writeProducts(authClient, products, isFirstUrl);
       isFirstUrl = false;
+
       log(`🟢 Finished scraping URL: ${url} (${products.length} products).`);
     }
 
     log(`🎉 All URLs processed. Total products: ${totalProductsScraped}`);
 
-    // Update status with success or no-products
     if (totalProductsScraped > 0) {
       await updateStatus(authClient, 'success', startTime);
     } else {
@@ -606,7 +686,6 @@ async function scrapeAllPages(page) {
   } catch (err) {
     log(`❌ ERROR: ${err.message}`);
 
-    // Update status with error
     if (authClient) {
       try {
         await updateStatus(authClient, 'error', startTime, err.message?.substring(0, 50));
