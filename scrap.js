@@ -538,7 +538,7 @@ async function scrapeAllPages(page) {
     await updateStatus(authClient, 'running', startTime);
 
     // Launch browser
-    browser = await chromium.launch({
+   browser = await chromium.launch({
   headless: true,
   args: [
     '--disable-blink-features=AutomationControlled',
