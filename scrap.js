@@ -1,14 +1,15 @@
 require('dotenv').config();
-const { chromium } = require('playwright');
 const fs = require('fs');
 const path = require('path');
 const { google } = require('googleapis');
+const { Builder, By, until, Key } = require('selenium-webdriver');
+const chrome = require('selenium-webdriver/chrome');
 
 // ===== CONFIG =====
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 const CONFIG_SHEET = '_config';
 const SHEET_NAME = process.env.SHEET_NAME;
-const CREDENTIALS_PATH = path.join(__dirname, process.env.CREDENTIALS_PATH);
+const CREDENTIALS_PATH = path.join(__dirname, process.env.CREDENTIALS_PATH || 'service-account.json');
 const USERNAME = process.env.HOLEX_USERNAME;
 const PASSWORD = process.env.HOLEX_PASSWORD;
 const LOGIN_URL = process.env.LOGIN_URL;
@@ -69,33 +70,6 @@ function ensureDebugDir() {
   return debugDir;
 }
 
-async function saveDebugState(page, name) {
-  try {
-    const debugDir = ensureDebugDir();
-    const safeName = name.replace(/[^\w.-]/g, '_');
-
-    const title = await page.title().catch(() => '');
-    const url = page.url();
-    const html = await page.content().catch(() => '');
-    const bodyText = await page.locator('body').innerText().catch(() => '');
-
-    fs.writeFileSync(path.join(debugDir, `${safeName}.html`), html || '');
-    fs.writeFileSync(path.join(debugDir, `${safeName}.txt`), bodyText || '');
-
-    await page.screenshot({
-      path: path.join(debugDir, `${safeName}.png`),
-      fullPage: true,
-    });
-
-    log(`🧾 Debug saved: ${safeName}`);
-    log(`🌐 Debug URL (${safeName}): ${url}`);
-    log(`📄 Debug Title (${safeName}): ${title}`);
-    log(`📝 Debug Body sample (${safeName}): ${(bodyText || '').slice(0, 800)}`);
-  } catch (err) {
-    log(`ℹ️ Failed saving debug state "${name}": ${err.message}`);
-  }
-}
-
 function detectChallenge(text = '') {
   const lower = text.toLowerCase();
   const challengeWords = [
@@ -110,6 +84,37 @@ function detectChallenge(text = '') {
     'malicious bots',
   ];
   return challengeWords.find((word) => lower.includes(word)) || null;
+}
+
+async function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function saveDebugState(driver, name) {
+  try {
+    const debugDir = ensureDebugDir();
+    const safeName = name.replace(/[^\w.-]/g, '_');
+
+    const title = await driver.getTitle().catch(() => '');
+    const url = await driver.getCurrentUrl().catch(() => '');
+    const html = await driver.getPageSource().catch(() => '');
+    const bodyText = await driver.findElement(By.css('body')).getText().catch(() => '');
+
+    fs.writeFileSync(path.join(debugDir, `${safeName}.html`), html || '');
+    fs.writeFileSync(path.join(debugDir, `${safeName}.txt`), bodyText || '');
+
+    const screenshot = await driver.takeScreenshot().catch(() => null);
+    if (screenshot) {
+      fs.writeFileSync(path.join(debugDir, `${safeName}.png`), screenshot, 'base64');
+    }
+
+    log(`🧾 Debug saved: ${safeName}`);
+    log(`🌐 Debug URL (${safeName}): ${url}`);
+    log(`📄 Debug Title (${safeName}): ${title}`);
+    log(`📝 Debug Body sample (${safeName}): ${(bodyText || '').slice(0, 800)}`);
+  } catch (err) {
+    log(`ℹ️ Failed saving debug state "${name}": ${err.message}`);
+  }
 }
 
 // ===== GOOGLE SHEETS =====
@@ -206,7 +211,6 @@ async function writeHeaders(authClient) {
   log('✅ Header row written.');
 }
 
-// ===== WRITE PRODUCTS =====
 async function writeProducts(authClient, rows, isFirstUrl = false) {
   if (!rows || !rows.length) return;
   const sheets = google.sheets({ version: 'v4', auth: authClient });
@@ -265,53 +269,69 @@ async function writeProducts(authClient, rows, isFirstUrl = false) {
   log(`✅ Wrote ${rows.length} rows starting at row ${startRow}.`);
 }
 
-// ===== PLAYWRIGHT HELPERS =====
-async function login(page) {
-  log('🔐 Logging in...');
+// ===== SELENIUM HELPERS =====
+async function createDriver() {
+  const options = new chrome.Options();
+  options.addArguments(
+    '--headless=new',
+    '--no-sandbox',
+    '--disable-dev-shm-usage',
+    '--window-size=1366,768',
+    '--disable-blink-features=AutomationControlled'
+  );
 
-  await page.goto(LOGIN_URL, {
-    waitUntil: 'domcontentloaded',
-    timeout: 120000,
+  const driver = await new Builder()
+    .forBrowser('chrome')
+    .setChromeOptions(options)
+    .build();
+
+  await driver.manage().setTimeouts({
+    implicit: 0,
+    pageLoad: 120000,
+    script: 120000,
   });
 
-  await page.waitForTimeout(5000);
-  await saveDebugState(page, 'login-page-before-submit');
+  return driver;
+}
 
-  log(`Username field count: ${await page.locator('#j_username').count()}`);
-  log(`Password field count: ${await page.locator('#j_password').count()}`);
+async function login(driver) {
+  log('🔐 Logging in...');
 
-  const initialTitle = await page.title().catch(() => '');
-  const initialBody = await page.locator('body').innerText().catch(() => '');
+  await driver.get(LOGIN_URL);
+  await sleep(5000);
+  await saveDebugState(driver, 'login-page-before-submit');
+
+  const initialTitle = await driver.getTitle().catch(() => '');
+  const initialBody = await driver.findElement(By.css('body')).getText().catch(() => '');
   const initialChallenge = detectChallenge(`${initialTitle}\n${initialBody}`);
 
   if (initialChallenge) {
     throw new Error(`Security / bot challenge detected before login: ${initialChallenge}`);
   }
 
-  const usernameField = page.locator('#j_username').first();
-  const passwordField = page.locator('#j_password').first();
-  const loginButton = page.locator('button.primary_button').first();
+  const usernameField = await driver.wait(until.elementLocated(By.css('#j_username')), 30000);
+  const passwordField = await driver.wait(until.elementLocated(By.css('#j_password')), 30000);
+  const loginButton = await driver.wait(until.elementLocated(By.css('button.primary_button')), 30000);
 
-  await usernameField.waitFor({ state: 'visible', timeout: 30000 });
   log('✅ Username field is visible');
-  await usernameField.fill(USERNAME);
+  await usernameField.clear();
+  await usernameField.sendKeys(USERNAME);
   log('✅ Username filled');
 
-  await passwordField.waitFor({ state: 'visible', timeout: 30000 });
   log('✅ Password field is visible');
-  await passwordField.fill(PASSWORD);
+  await passwordField.clear();
+  await passwordField.sendKeys(PASSWORD);
   log('✅ Password filled');
 
-  await loginButton.waitFor({ state: 'visible', timeout: 30000 });
   await loginButton.click();
   log('✅ Login button clicked');
 
-  await page.waitForTimeout(12000);
-  await saveDebugState(page, 'login-page-after-submit');
+  await sleep(12000);
+  await saveDebugState(driver, 'login-page-after-submit');
 
-  const afterTitle = await page.title().catch(() => '');
-  const afterUrl = page.url();
-  const afterBody = await page.locator('body').innerText().catch(() => '');
+  const afterTitle = await driver.getTitle().catch(() => '');
+  const afterUrl = await driver.getCurrentUrl().catch(() => '');
+  const afterBody = await driver.findElement(By.css('body')).getText().catch(() => '');
   const afterChallenge = detectChallenge(`${afterTitle}\n${afterBody}`);
 
   log(`🌐 URL after login click: ${afterUrl}`);
@@ -321,78 +341,74 @@ async function login(page) {
     throw new Error(`Blocked by Cloudflare / anti-bot challenge after login: ${afterChallenge}`);
   }
 
-  const stillOnLogin =
-    (await page.locator('#j_username').count().catch(() => 0)) > 0 &&
-    (await page.locator('#j_password').count().catch(() => 0)) > 0;
-
-  if (stillOnLogin && afterUrl.includes('login')) {
-    throw new Error('Login failed: still on login page after submit');
-  }
-
   log('✅ Login confirmed.');
 }
 
-async function closePopup(page) {
-  const closeBtn = await page.$(
-    '#cboxClose, .fancybox-close, .popup-close, .modal-close, .close-popup'
-  );
-  if (closeBtn) {
-    await closeBtn.click();
-    log('🧼 Closed popup.');
+async function closePopup(driver) {
+  const selectors = [
+    '#cboxClose',
+    '.fancybox-close',
+    '.popup-close',
+    '.modal-close',
+    '.close-popup',
+  ];
+
+  for (const selector of selectors) {
+    try {
+      const els = await driver.findElements(By.css(selector));
+      if (els.length) {
+        await els[0].click();
+        log('🧼 Closed popup.');
+        return;
+      }
+    } catch {}
   }
 }
 
-async function autoScroll(page) {
-  let prevHeight = await page.evaluate(() => document.body.scrollHeight);
+async function autoScroll(driver) {
+  let prevHeight = await driver.executeScript('return document.body.scrollHeight');
   for (let i = 0; i < 20; i++) {
-    await page.evaluate(() => window.scrollBy(0, window.innerHeight));
-    await page.waitForTimeout(1500);
-    const newHeight = await page.evaluate(() => document.body.scrollHeight);
+    await driver.executeScript('window.scrollBy(0, window.innerHeight);');
+    await sleep(1500);
+    const newHeight = await driver.executeScript('return document.body.scrollHeight');
     if (newHeight === prevHeight) break;
     prevHeight = newHeight;
   }
   log('✅ Scrolling complete.');
 }
 
-// ===== SELECT PACKING DATE =====
-async function selectPackingDate(page, dateStr) {
+async function selectPackingDate(driver, dateStr) {
   log(`📅 Selecting packing date: ${dateStr}`);
 
   const [month, day, year] = dateStr.split('/');
   const formattedDate = `${String(month).padStart(2, '0')}/${String(day).padStart(2, '0')}/${year}`;
 
-  const blockingBanner = await page.$(
-    'div.alert, div.hl_notification, header.js-mainHeader .hlx_notification'
-  );
-  if (blockingBanner) {
-    await page.evaluate((el) => el.remove(), blockingBanner);
-    log('🧹 Removed a blocking alert/banner.');
-  }
+  try {
+    await driver.executeScript(`
+      const el = document.querySelector('div.alert, div.hl_notification, header.js-mainHeader .hlx_notification');
+      if (el) el.remove();
+    `);
+  } catch {}
 
-  const pageTitle = await page.title().catch(() => '');
-  const bodyText = await page.locator('body').innerText().catch(() => '');
+  const pageTitle = await driver.getTitle().catch(() => '');
+  const bodyText = await driver.findElement(By.css('body')).getText().catch(() => '');
   const challenge = detectChallenge(`${pageTitle}\n${bodyText}`);
 
   if (challenge) {
-    await saveDebugState(page, 'challenge-before-date-select');
+    await saveDebugState(driver, 'challenge-before-date-select');
     throw new Error(`Blocked by Cloudflare / anti-bot challenge before date selection: ${challenge}`);
   }
 
-  const calendarIcon = await page.$('div.js-custom_datepicker i.js-calendar_icon');
-  if (!calendarIcon) {
-    await saveDebugState(page, 'calendar-not-found');
+  const icons = await driver.findElements(By.css('div.js-custom_datepicker i.js-calendar_icon'));
+  if (!icons.length) {
+    await saveDebugState(driver, 'calendar-not-found');
     throw new Error('Calendar icon not found. Page may not be logged in, may be blocked, or layout changed.');
   }
 
-  await calendarIcon.click({ timeout: 5000 });
+  await icons[0].click();
   log('🟢 Calendar icon clicked.');
 
-  await page.waitForSelector('div.js-custom_datepicker table', { timeout: 15000 });
-
-  async function getCalendarMonthYear() {
-    const header = await page.$('div.js-custom_datepicker th.picker-switch');
-    return header ? (await header.innerText()).trim() : '';
-  }
+  await driver.wait(until.elementLocated(By.css('div.js-custom_datepicker table')), 15000);
 
   const targetMonthYear = new Date(`${year}-${month}-01`).toLocaleString('en-US', {
     month: 'long',
@@ -400,40 +416,41 @@ async function selectPackingDate(page, dateStr) {
   });
 
   for (let i = 0; i < 12; i++) {
-    const currentHeader = await getCalendarMonthYear();
-    if (currentHeader === targetMonthYear) break;
+    const header = await driver.findElement(By.css('div.js-custom_datepicker th.picker-switch')).getText();
+    if (header.trim() === targetMonthYear) break;
 
-    const nextBtn = await page.$('div.js-custom_datepicker th.next');
-    if (!nextBtn) {
-      throw new Error(`Cannot find next month button. Calendar stuck at ${currentHeader}`);
+    const nextBtns = await driver.findElements(By.css('div.js-custom_datepicker th.next'));
+    if (!nextBtns.length) {
+      throw new Error(`Cannot find next month button. Calendar stuck at ${header}`);
     }
 
-    await nextBtn.click();
-    await page.waitForTimeout(500);
+    await nextBtns[0].click();
+    await sleep(500);
   }
 
-  const dateCell = await page.$(`div.js-custom_datepicker td[data-day="${formattedDate}"]`);
-  if (!dateCell) {
+  const dateCells = await driver.findElements(By.css(`div.js-custom_datepicker td[data-day="${formattedDate}"]`));
+  if (!dateCells.length) {
     throw new Error(`Date cell for ${formattedDate} not found`);
   }
 
-  const classList = (await dateCell.getAttribute('class')) || '';
-  if (classList.includes('disabled')) {
+  const classList = await dateCells[0].getAttribute('class');
+  if ((classList || '').includes('disabled')) {
     log(`❌ Date ${formattedDate} is disabled and cannot be selected.`);
     return false;
   }
 
-  await dateCell.click();
+  await dateCells[0].click();
   log(`✅ Date selected: ${formattedDate}`);
 
   try {
-    const continueBtn = await page.waitForSelector('button.confirm_select_date', { timeout: 3000 });
-    if (continueBtn) {
-      await continueBtn.click();
-      log('✅ Confirmed date selection by clicking Continue.');
-      await page.waitForTimeout(2000);
-    }
-  } catch (err) {
+    const continueBtn = await driver.wait(
+      until.elementLocated(By.css('button.confirm_select_date')),
+      3000
+    );
+    await continueBtn.click();
+    log('✅ Confirmed date selection by clicking Continue.');
+    await sleep(2000);
+  } catch {
     log('ℹ️ No confirmation popup appeared.');
   }
 
@@ -441,42 +458,47 @@ async function selectPackingDate(page, dateStr) {
 }
 
 // ===== SCRAPING PRODUCTS =====
-async function scrapeProducts(page) {
+async function scrapeProducts(driver) {
   const results = [];
-  const cards = await page.$$('div.product-item');
+  const cards = await driver.findElements(By.css('div.product-item'));
   const time = getUaeTimeFormatted();
 
   for (const product of cards) {
     try {
-      const name = sanitize(
-        await product.$eval('div.name_fav span a', (el) => el.textContent).catch(() => 'N/A')
-      );
-      const tag = sanitize(
-        await product.$eval('div.thumnail_section span', (el) => el.textContent).catch(() => 'N/A')
-      );
+      async function getTextSafe(selector) {
+        try {
+          return sanitize(await product.findElement(By.css(selector)).getText());
+        } catch {
+          return 'N/A';
+        }
+      }
 
-      let imgUrl = await product
-        .$eval('div.thumnail_section img', (el) => el.src)
-        .catch(() => 'N/A');
+      async function getAttrSafe(selector, attr) {
+        try {
+          return await product.findElement(By.css(selector)).getAttribute(attr);
+        } catch {
+          return 'N/A';
+        }
+      }
 
+      const name = await getTextSafe('div.name_fav span a');
+      const tag = await getTextSafe('div.thumnail_section span');
+
+      let imgUrl = await getAttrSafe('div.thumnail_section img', 'src');
       if (imgUrl !== 'N/A' && imgUrl.includes('image=/https')) {
         imgUrl = imgUrl.replace('image=/https', 'image=https');
       }
 
-      const origin = sanitize(
-        await product
-          .$eval('div.country_icon_outer div.text', (el) => el.textContent)
-          .catch(() => 'N/A')
-      );
+      const origin = await getTextSafe('div.country_icon_outer div.text');
 
       let color = 'N/A';
-      const colorElement = await product.$('span.hlx_plp_color');
-      if (colorElement) {
-        const rgb = await colorElement.evaluate((el) =>
-          window.getComputedStyle(el).getPropertyValue('background-color')
+      try {
+        const colorElement = await product.findElement(By.css('span.hlx_plp_color'));
+        color = await driver.executeScript(
+          'return window.getComputedStyle(arguments[0]).getPropertyValue("background-color")',
+          colorElement
         );
-        color = getColorNameFromRGB(rgb);
-      }
+      } catch {}
 
       let length = 'N/A';
       let weight = 'N/A';
@@ -484,102 +506,95 @@ async function scrapeProducts(page) {
       let diameter = 'N/A';
       let noofbuds = 'N/A';
 
-      const attrBlock = await product.$('.classification_attributes_block');
-      if (attrBlock) {
-        const items = await attrBlock.$$('li');
+      try {
+        const items = await product.findElements(By.css('.classification_attributes_block li'));
         for (const li of items) {
-          const icon = await li.$('i');
-          const text = sanitize(await li.$eval('p', (el) => el.textContent).catch(() => ''));
-          if (icon) {
+          try {
+            const icon = await li.findElement(By.css('i'));
+            const text = sanitize(await li.findElement(By.css('p')).getText());
             const classList = await icon.getAttribute('class');
             if (classList.includes('length_icon')) length = text || 'N/A';
             else if (classList.includes('diameter_icon')) diameter = text || 'N/A';
             else if (classList.includes('weight_icon')) weight = text || 'N/A';
             else if (classList.includes('certificate_icon')) certificate = text || 'N/A';
-          }
+          } catch {}
         }
-      }
+      } catch {}
 
       let farm = 'N/A';
-      const farmElement = await product.$(
-        'div.classification_attributes_block.labels_attr div.classification_label_attributes'
-      );
-      if (farmElement) {
-        farm = await farmElement
-          .evaluate((el) => {
-            const spans = el.querySelectorAll('span');
-            spans.forEach((s) => s.remove());
-            return el.textContent.trim();
-          })
-          .catch(() => 'N/A');
-      }
+      try {
+        const farmElement = await product.findElement(
+          By.css('div.classification_attributes_block.labels_attr div.classification_label_attributes')
+        );
+        farm = await driver.executeScript(`
+          const el = arguments[0].cloneNode(true);
+          el.querySelectorAll('span').forEach(s => s.remove());
+          return (el.textContent || '').trim();
+        `, farmElement);
+      } catch {}
 
       let first_quantity = 'N/A';
       let available_quantity = 'N/A';
-      const packDiv = await product.$('div.text-left');
-      const quantityDiv = await product.$('div.first_quantity');
 
-      if (quantityDiv) {
-        let rawQty = sanitize(await quantityDiv.evaluate((el) => el.textContent)).trim();
-        rawQty = rawQty.replace(/assortment/i, '').trim();
-        available_quantity = rawQty || 'N/A';
+      try {
+        const quantityDivs = await product.findElements(By.css('div.first_quantity'));
+        if (quantityDivs.length) {
+          let rawQty = sanitize(await quantityDivs[0].getText()).trim();
+          rawQty = rawQty.replace(/assortment/i, '').trim();
+          available_quantity = rawQty || 'N/A';
 
-        if (packDiv) {
-          const spans = await packDiv.$$('span');
-          const unitName = spans[0]
-            ? sanitize(await spans[0].evaluate((el) => el.textContent))
-            : '';
-          const unitCode = spans[1]
-            ? sanitize(await spans[1].evaluate((el) => el.textContent))
-            : '';
-          first_quantity = `${unitName} (${unitCode}) ${available_quantity}`.trim();
-        } else {
-          first_quantity = available_quantity;
+          const packDivs = await product.findElements(By.css('div.text-left'));
+          if (packDivs.length) {
+            const spans = await packDivs[0].findElements(By.css('span'));
+            const unitName = spans[0] ? sanitize(await spans[0].getText()) : '';
+            const unitCode = spans[1] ? sanitize(await spans[1].getText()) : '';
+            first_quantity = `${unitName} (${unitCode}) ${available_quantity}`.trim();
+          } else {
+            first_quantity = available_quantity;
+          }
         }
-      }
+      } catch {}
 
       const BASE = 'https://shop.holex.com';
       let productUrl = 'N/A';
       try {
-        const rel = await product
-          .$eval('div.name_fav a', (el) => el.getAttribute('href'))
-          .catch(() => null);
-
+        const rel = await product.findElement(By.css('div.name_fav a')).getAttribute('href');
         if (rel) {
           productUrl = /^https?:\/\//i.test(rel.trim())
             ? rel.trim()
             : BASE.replace(/\/+$/, '') + '/' + rel.trim().replace(/^\/+/, '');
         }
-      } catch (err) {
-        productUrl = 'N/A';
-      }
+      } catch {}
 
       function cleanQuantity(text) {
         return text ? text.replace(/^x\s*/, '').trim() : 'N/A';
       }
 
-      const rows = await product.$$('div.input_row');
+      const rows = await product.findElements(By.css('div.input_row'));
       const prices = [];
 
       for (const row of rows) {
-        const className = await row.evaluate((el) => el.className);
-        const inputReadonly = await row.$('input[readonly]');
-        if (className.includes('disabled') || inputReadonly) continue;
+        try {
+          const className = await row.getAttribute('class');
+          const readonlyInputs = await row.findElements(By.css('input[readonly]'));
+          if (className.includes('disabled') || readonlyInputs.length) continue;
 
-        const priceEl = await row.$('span.price_text');
-        let price = 'N/A';
-        if (priceEl) {
-          price = sanitize(
-            await priceEl.evaluate((el) => el.getAttribute('from-price') || el.textContent)
-          ).replace(',', '.');
-        }
+          let price = 'N/A';
+          try {
+            const priceEl = await row.findElement(By.css('span.price_text'));
+            price = sanitize(
+              (await priceEl.getAttribute('from-price')) || (await priceEl.getText())
+            ).replace(',', '.');
+          } catch {}
 
-        const quantityEl = await row.$('span.stock_unit.pieces_unit');
-        const qty = quantityEl
-          ? cleanQuantity(await quantityEl.evaluate((el) => el.textContent))
-          : 'N/A';
+          let qty = 'N/A';
+          try {
+            const quantityEl = await row.findElement(By.css('span.stock_unit.pieces_unit'));
+            qty = cleanQuantity(await quantityEl.getText());
+          } catch {}
 
-        prices.push({ price, quantity: qty });
+          prices.push({ price, quantity: qty });
+        } catch {}
       }
 
       const stemPrice = prices[0]?.price || 'N/A';
@@ -620,29 +635,28 @@ async function scrapeProducts(page) {
   return results;
 }
 
-// ===== SCRAPE ALL PAGES =====
-async function scrapeAllPages(page) {
+async function scrapeAllPages(driver) {
   let allProducts = [];
   let pageNum = 1;
 
   while (true) {
     log(`📄 Scraping page ${pageNum}...`);
-    await autoScroll(page);
+    await autoScroll(driver);
 
-    const products = await scrapeProducts(page);
+    const products = await scrapeProducts(driver);
     allProducts = allProducts.concat(products);
 
-    const nextBtn = await page.$('li.pagination-next:not(.disabled) a[rel="next"]');
-    if (!nextBtn) break;
+    const nextBtns = await driver.findElements(By.css('li.pagination-next:not(.disabled) a[rel="next"]'));
+    if (!nextBtns.length) break;
 
-    const nextUrl = await nextBtn.getAttribute('href');
+    const nextUrl = await nextBtns[0].getAttribute('href');
     if (!nextUrl) break;
 
-    const fullUrl = `${ANTHURIUM_BASE_URL}${nextUrl}`;
+    const fullUrl = nextUrl.startsWith('http') ? nextUrl : `${ANTHURIUM_BASE_URL}${nextUrl}`;
     log(`➡️ Moving to: ${fullUrl}`);
 
-    await page.goto(fullUrl, { waitUntil: 'domcontentloaded', timeout: 120000 });
-    await page.waitForTimeout(12000);
+    await driver.get(fullUrl);
+    await sleep(12000);
     pageNum++;
   }
 
@@ -654,8 +668,7 @@ async function scrapeAllPages(page) {
 (async () => {
   const startTime = Date.now();
 
-  let browser = null;
-  let context = null;
+  let driver = null;
   let authClient = null;
   let totalProductsScraped = 0;
 
@@ -663,46 +676,21 @@ async function scrapeAllPages(page) {
     authClient = await authorize();
     await updateStatus(authClient, 'running', startTime);
 
-    const debugDir = ensureDebugDir();
-
-    browser = await chromium.launch({
-      headless: true,
-      args: [
-        '--disable-blink-features=AutomationControlled',
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-      ],
-    });
-
-    context = await browser.newContext({
-      viewport: { width: 1366, height: 768 },
-      userAgent:
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
-      locale: 'en-US',
-      recordVideo: {
-        dir: debugDir,
-        size: { width: 1366, height: 768 },
-      },
-    });
-
-    const page = await context.newPage();
-    page.setDefaultTimeout(120000);
+    ensureDebugDir();
+    driver = await createDriver();
 
     log('🚀 Script started.');
 
     const packingDate = await readPackingDate(authClient);
 
-    await login(page);
+    await login(driver);
 
-    await page.goto(`${ANTHURIUM_BASE_URL}/en_US/All-products/Flowers/c/Flowers`, {
-      waitUntil: 'domcontentloaded',
-      timeout: 120000,
-    });
-    await page.waitForTimeout(3000);
-    await saveDebugState(page, 'flowers-page');
-    await closePopup(page);
+    await driver.get(`${ANTHURIUM_BASE_URL}/en_US/All-products/Flowers/c/Flowers`);
+    await sleep(3000);
+    await saveDebugState(driver, 'flowers-page');
+    await closePopup(driver);
 
-    const dateSelected = await selectPackingDate(page, packingDate);
+    const dateSelected = await selectPackingDate(driver, packingDate);
     if (!dateSelected) {
       log(`⚠️ Packing date ${packingDate} is disabled. Writing "No products found" and exiting.`);
       await writeHeaders(authClient);
@@ -729,11 +717,11 @@ async function scrapeAllPages(page) {
 
     for (const url of urls) {
       log(`➡️ Scraping URL: ${url}`);
-      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 120000 });
-      await page.waitForTimeout(3000);
-      await closePopup(page);
+      await driver.get(url);
+      await sleep(3000);
+      await closePopup(driver);
 
-      const products = await scrapeAllPages(page);
+      const products = await scrapeAllPages(driver);
       totalProductsScraped += products.length;
 
       await writeProducts(authClient, products, isFirstUrl);
@@ -764,13 +752,8 @@ async function scrapeAllPages(page) {
 
     process.exitCode = 1;
   } finally {
-    if (context) {
-      await context.close();
-      log('🎥 Browser context closed.');
-    }
-
-    if (browser) {
-      await browser.close();
+    if (driver) {
+      await driver.quit();
       log('🔒 Browser closed.');
     }
   }
