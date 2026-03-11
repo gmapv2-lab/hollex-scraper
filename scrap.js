@@ -14,7 +14,7 @@ const PASSWORD = process.env.HOLEX_PASSWORD;
 const LOGIN_URL = process.env.LOGIN_URL;
 const ANTHURIUM_BASE_URL = process.env.ANTHURIUM_BASE_URL;
 const LOG_PATH = path.join(__dirname, process.env.LOG_PATH || 'scraper.log');
-const STATUS_CELL = 'F5'; // Status cell in _config sheet
+const STATUS_CELL = 'F5';
 
 // ===== UTILITY FUNCTIONS =====
 function log(message) {
@@ -47,26 +47,67 @@ function getUaeTimeFormatted() {
     .replace(',', '');
 }
 
-// --- Format runtime (ms) as "42s" or "2m 13s" or "1h 5m 20s" ---
 function formatRuntime(ms) {
   const totalSeconds = Math.floor(ms / 1000);
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
 
-  if (hours > 0) {
-    return `${hours}h ${minutes}m ${seconds}s`;
-  } else if (minutes > 0) {
-    return `${minutes}m ${seconds}s`;
-  } else if (seconds > 0) {
-    return `${seconds}s`;
-  } else {
-    return `${ms}ms`;
-  }
+  if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`;
+  if (minutes > 0) return `${minutes}m ${seconds}s`;
+  if (seconds > 0) return `${seconds}s`;
+  return `${ms}ms`;
 }
 
 function getColorNameFromRGB(rgb) {
   return rgb || 'N/A';
+}
+
+function ensureDebugDir() {
+  const debugDir = path.join(__dirname, 'debug');
+  if (!fs.existsSync(debugDir)) fs.mkdirSync(debugDir, { recursive: true });
+  return debugDir;
+}
+
+async function saveDebugState(page, name) {
+  try {
+    const debugDir = ensureDebugDir();
+    const safeName = name.replace(/[^\w.-]/g, '_');
+
+    const title = await page.title().catch(() => '');
+    const url = page.url();
+    const html = await page.content().catch(() => '');
+    const bodyText = await page.locator('body').innerText().catch(() => '');
+
+    fs.writeFileSync(path.join(debugDir, `${safeName}.html`), html || '');
+    fs.writeFileSync(path.join(debugDir, `${safeName}.txt`), bodyText || '');
+
+    await page.screenshot({
+      path: path.join(debugDir, `${safeName}.png`),
+      fullPage: true,
+    });
+
+    log(`🧾 Debug saved: ${safeName}`);
+    log(`🌐 Debug URL (${safeName}): ${url}`);
+    log(`📄 Debug Title (${safeName}): ${title}`);
+    log(`📝 Debug Body sample (${safeName}): ${(bodyText || '').slice(0, 800)}`);
+  } catch (err) {
+    log(`ℹ️ Failed saving debug state "${name}": ${err.message}`);
+  }
+}
+
+function detectChallenge(text = '') {
+  const lower = text.toLowerCase();
+  const challengeWords = [
+    'just a moment',
+    'checking your browser',
+    'verify you are human',
+    'access denied',
+    'attention required',
+    'cloudflare',
+    'captcha',
+  ];
+  return challengeWords.find(word => lower.includes(word)) || null;
 }
 
 // ===== GOOGLE SHEETS =====
@@ -78,7 +119,6 @@ async function authorize() {
   return await auth.getClient();
 }
 
-// Update status in Google Sheet with runtime
 async function updateStatus(authClient, status, startTime, errorMessage) {
   const sheets = google.sheets({ version: 'v4', auth: authClient });
 
@@ -187,10 +227,12 @@ async function writeProducts(authClient, rows, isFirstUrl = false) {
 
   const values = rows.map((p) => {
     if (p.name && p.name.startsWith('No products found')) return [p.name];
+
     const secondPriceCombined =
       p.secondPrice && p.second_quantity ? `${p.secondPrice} × ${p.second_quantity}` : 'N/A';
     const thirdPriceCombined =
       p.thirdPrice && p.third_quantity ? `${p.thirdPrice} × ${p.third_quantity}` : 'N/A';
+
     return [
       p.name || 'N/A',
       p.tag || 'N/A',
@@ -219,6 +261,7 @@ async function writeProducts(authClient, rows, isFirstUrl = false) {
     valueInputOption: 'USER_ENTERED',
     resource: { values },
   });
+
   log(`✅ Wrote ${rows.length} rows starting at row ${startRow}.`);
 }
 
@@ -232,109 +275,61 @@ async function login(page) {
   });
 
   await page.waitForTimeout(5000);
+  await saveDebugState(page, 'login-page-before-submit');
 
-  const debugDir = path.join(__dirname, 'debug');
-  if (!fs.existsSync(debugDir)) fs.mkdirSync(debugDir, { recursive: true });
+  log(`Username field count: ${await page.locator('#j_username').count()}`);
+  log(`Password field count: ${await page.locator('#j_password').count()}`);
 
-  log(`🌐 URL after goto: ${page.url()}`);
-  log(`📄 Title after goto: ${await page.title()}`);
+  const initialTitle = await page.title().catch(() => '');
+  const initialBody = await page.locator('body').innerText().catch(() => '');
+  const initialChallenge = detectChallenge(`${initialTitle}\n${initialBody}`);
 
-  const html = await page.content();
-  fs.writeFileSync(path.join(debugDir, 'login-page.html'), html);
-
-  const bodyText = await page.locator('body').innerText().catch(() => '');
-  fs.writeFileSync(path.join(debugDir, 'login-page.txt'), bodyText || '');
-
-  await page.screenshot({
-    path: path.join(debugDir, 'login-page.png'),
-    fullPage: true,
-  });
-
-  log(`🧾 Body text sample: ${(bodyText || '').slice(0, 1000)}`);
-
-  const frames = page.frames();
-  log(`🪟 Frames found: ${frames.length}`);
-  for (const frame of frames) {
-    log(`🪟 Frame URL: ${frame.url()}`);
+  if (initialChallenge) {
+    throw new Error(`Security / bot challenge detected before login: ${initialChallenge}`);
   }
 
-  const challengeWords = [
-    'just a moment',
-    'checking your browser',
-    'verify you are human',
-    'access denied',
-    'attention required',
-    'cloudflare',
-    'captcha',
-  ];
+  const usernameField = page.locator('#j_username').first();
+  const passwordField = page.locator('#j_password').first();
+  const loginButton = page.locator('button.primary_button').first();
 
-  const lowerBody = (bodyText || '').toLowerCase();
-  const foundChallenge = challengeWords.find(word => lowerBody.includes(word));
+  await usernameField.waitFor({ state: 'visible', timeout: 30000 });
+  log('✅ Username field is visible');
+  await usernameField.fill(USERNAME);
+  log('✅ Username filled');
 
-  if (foundChallenge) {
-    throw new Error(`Security / bot challenge detected: ${foundChallenge}`);
-  }
+  await passwordField.waitFor({ state: 'visible', timeout: 30000 });
+  log('✅ Password field is visible');
+  await passwordField.fill(PASSWORD);
+  log('✅ Password filled');
 
-  let usernameLocator = page.locator('#j_username');
-
-  if ((await usernameLocator.count()) === 0) {
-    for (const frame of frames) {
-      try {
-        const frameLocator = frame.locator('#j_username');
-        if ((await frameLocator.count()) > 0) {
-          log(`✅ Username field found inside iframe: ${frame.url()}`);
-          await frameLocator.first().waitFor({ state: 'visible', timeout: 30000 });
-          await frameLocator.first().fill(USERNAME);
-
-          const passwordLocator = frame.locator('#j_password');
-          await passwordLocator.first().waitFor({ state: 'visible', timeout: 30000 });
-          await passwordLocator.first().fill(PASSWORD);
-
-          const loginButton = frame.locator('button.primary_button');
-          await loginButton.first().click();
-
-          await page.waitForTimeout(12000);
-          log('✅ Logged in through iframe.');
-          return;
-        }
-      } catch (err) {
-        log(`ℹ️ Frame check skipped: ${err.message}`);
-      }
-    }
-  }
-
-  await usernameLocator.first().waitFor({ state: 'visible', timeout: 30000 });
-  await usernameLocator.first().fill(USERNAME);
-log(`Username field count: ${await page.locator('#j_username').count()}`);
-log(`Password field count: ${await page.locator('#j_password').count()}`);
-await page.locator('#j_username').waitFor({ state: 'visible', timeout: 30000 });
-log('✅ Username field is visible');
-await page.fill('#j_username', USERNAME);
-log('✅ Username filled');
-
-await page.locator('#j_password').waitFor({ state: 'visible', timeout: 30000 });
-log('✅ Password field is visible');
-await page.fill('#j_password', PASSWORD);
-log('✅ Password filled');
-
-await page.click('button.primary_button');
-log('✅ Login button clicked');
-
-  const loginButton = page.locator('button.primary_button');
-  await loginButton.first().waitFor({ state: 'visible', timeout: 30000 });
-  await loginButton.first().click();
+  await loginButton.waitFor({ state: 'visible', timeout: 30000 });
+  await loginButton.click();
+  log('✅ Login button clicked');
 
   await page.waitForTimeout(12000);
+  await saveDebugState(page, 'login-page-after-submit');
 
-  await page.screenshot({
-    path: path.join(debugDir, 'after-login-click.png'),
-    fullPage: true,
-  });
+  const afterTitle = await page.title().catch(() => '');
+  const afterUrl = page.url();
+  const afterBody = await page.locator('body').innerText().catch(() => '');
+  const afterChallenge = detectChallenge(`${afterTitle}\n${afterBody}`);
 
-  log(`🌐 URL after login click: ${page.url()}`);
-  log(`📄 Title after login click: ${await page.title()}`);
+  log(`🌐 URL after login click: ${afterUrl}`);
+  log(`📄 Title after login click: ${afterTitle}`);
 
-  log('✅ Login step completed.');
+  if (afterChallenge) {
+    throw new Error(`Blocked by Cloudflare / anti-bot challenge after login: ${afterChallenge}`);
+  }
+
+  const stillOnLogin =
+    (await page.locator('#j_username').count().catch(() => 0)) > 0 &&
+    (await page.locator('#j_password').count().catch(() => 0)) > 0;
+
+  if (stillOnLogin && afterUrl.includes('login')) {
+    throw new Error('Login failed: still on login page after submit');
+  }
+
+  log('✅ Login confirmed.');
 }
 
 async function closePopup(page) {
@@ -362,6 +357,7 @@ async function autoScroll(page) {
 // ===== SELECT PACKING DATE =====
 async function selectPackingDate(page, dateStr) {
   log(`📅 Selecting packing date: ${dateStr}`);
+
   const [month, day, year] = dateStr.split('/');
   const formattedDate = `${String(month).padStart(2, '0')}/${String(day).padStart(2, '0')}/${year}`;
 
@@ -373,11 +369,21 @@ async function selectPackingDate(page, dateStr) {
     log('🧹 Removed a blocking alert/banner.');
   }
 
+  const pageTitle = await page.title().catch(() => '');
+  const bodyText = await page.locator('body').innerText().catch(() => '');
+  const challenge = detectChallenge(`${pageTitle}\n${bodyText}`);
+
+  if (challenge) {
+    await saveDebugState(page, 'challenge-before-date-select');
+    throw new Error(`Blocked by Cloudflare / anti-bot challenge before date selection: ${challenge}`);
+  }
+
   const calendarIcon = await page.$('div.js-custom_datepicker i.js-calendar_icon');
   if (!calendarIcon) {
-    log('❌ Calendar icon not found!');
-    return false;
+    await saveDebugState(page, 'calendar-not-found');
+    throw new Error('Calendar icon not found. Page may not be logged in, may be blocked, or layout changed.');
   }
+
   await calendarIcon.click({ timeout: 5000 });
   log('🟢 Calendar icon clicked.');
 
@@ -392,25 +398,26 @@ async function selectPackingDate(page, dateStr) {
     month: 'long',
     year: 'numeric',
   });
+
   for (let i = 0; i < 12; i++) {
     const currentHeader = await getCalendarMonthYear();
     if (currentHeader === targetMonthYear) break;
+
     const nextBtn = await page.$('div.js-custom_datepicker th.next');
     if (!nextBtn) {
-      log(`❌ Cannot find next month button. Calendar stuck at ${currentHeader}`);
-      return false;
+      throw new Error(`Cannot find next month button. Calendar stuck at ${currentHeader}`);
     }
+
     await nextBtn.click();
     await page.waitForTimeout(500);
   }
 
   const dateCell = await page.$(`div.js-custom_datepicker td[data-day="${formattedDate}"]`);
   if (!dateCell) {
-    log(`❌ Date cell for ${formattedDate} not found!`);
-    return false;
+    throw new Error(`Date cell for ${formattedDate} not found`);
   }
 
-  const classList = await dateCell.getAttribute('class');
+  const classList = (await dateCell.getAttribute('class')) || '';
   if (classList.includes('disabled')) {
     log(`❌ Date ${formattedDate} is disabled and cannot be selected.`);
     return false;
@@ -447,17 +454,21 @@ async function scrapeProducts(page) {
       const tag = sanitize(
         await product.$eval('div.thumnail_section span', (el) => el.textContent).catch(() => 'N/A')
       );
+
       let imgUrl = await product
         .$eval('div.thumnail_section img', (el) => el.src)
         .catch(() => 'N/A');
-      if (imgUrl !== 'N/A' && imgUrl.includes('image=/https'))
+
+      if (imgUrl !== 'N/A' && imgUrl.includes('image=/https')) {
         imgUrl = imgUrl.replace('image=/https', 'image=https');
+      }
 
       const origin = sanitize(
         await product
           .$eval('div.country_icon_outer div.text', (el) => el.textContent)
           .catch(() => 'N/A')
       );
+
       let color = 'N/A';
       const colorElement = await product.$('span.hlx_plp_color');
       if (colorElement) {
@@ -467,11 +478,12 @@ async function scrapeProducts(page) {
         color = getColorNameFromRGB(rgb);
       }
 
-      let length = 'N/A',
-        weight = 'N/A',
-        certificate = 'N/A',
-        diameter = 'N/A',
-        noofbuds = 'N/A';
+      let length = 'N/A';
+      let weight = 'N/A';
+      let certificate = 'N/A';
+      let diameter = 'N/A';
+      let noofbuds = 'N/A';
+
       const attrBlock = await product.$('.classification_attributes_block');
       if (attrBlock) {
         const items = await attrBlock.$$('li');
@@ -511,6 +523,7 @@ async function scrapeProducts(page) {
         let rawQty = sanitize(await quantityDiv.evaluate((el) => el.textContent)).trim();
         rawQty = rawQty.replace(/assortment/i, '').trim();
         available_quantity = rawQty || 'N/A';
+
         if (packDiv) {
           const spans = await packDiv.$$('span');
           const unitName = spans[0]
@@ -520,7 +533,9 @@ async function scrapeProducts(page) {
             ? sanitize(await spans[1].evaluate((el) => el.textContent))
             : '';
           first_quantity = `${unitName} (${unitCode}) ${available_quantity}`.trim();
-        } else first_quantity = available_quantity;
+        } else {
+          first_quantity = available_quantity;
+        }
       }
 
       const BASE = 'https://shop.holex.com';
@@ -529,10 +544,12 @@ async function scrapeProducts(page) {
         const rel = await product
           .$eval('div.name_fav a', (el) => el.getAttribute('href'))
           .catch(() => null);
-        if (rel)
+
+        if (rel) {
           productUrl = /^https?:\/\//i.test(rel.trim())
             ? rel.trim()
             : BASE.replace(/\/+$/, '') + '/' + rel.trim().replace(/^\/+/, '');
+        }
       } catch (err) {
         productUrl = 'N/A';
       }
@@ -540,22 +557,28 @@ async function scrapeProducts(page) {
       function cleanQuantity(text) {
         return text ? text.replace(/^x\s*/, '').trim() : 'N/A';
       }
+
       const rows = await product.$$('div.input_row');
-      let prices = [];
+      const prices = [];
+
       for (const row of rows) {
         const className = await row.evaluate((el) => el.className);
         const inputReadonly = await row.$('input[readonly]');
         if (className.includes('disabled') || inputReadonly) continue;
+
         const priceEl = await row.$('span.price_text');
         let price = 'N/A';
-        if (priceEl)
+        if (priceEl) {
           price = sanitize(
             await priceEl.evaluate((el) => el.getAttribute('from-price') || el.textContent)
           ).replace(',', '.');
+        }
+
         const quantityEl = await row.$('span.stock_unit.pieces_unit');
         const qty = quantityEl
           ? cleanQuantity(await quantityEl.evaluate((el) => el.textContent))
           : 'N/A';
+
         prices.push({ price, quantity: qty });
       }
 
@@ -593,6 +616,7 @@ async function scrapeProducts(page) {
       log(`❌ Error scraping product: ${err.message}`);
     }
   }
+
   return results;
 }
 
@@ -604,16 +628,19 @@ async function scrapeAllPages(page) {
   while (true) {
     log(`📄 Scraping page ${pageNum}...`);
     await autoScroll(page);
+
     const products = await scrapeProducts(page);
     allProducts = allProducts.concat(products);
 
     const nextBtn = await page.$('li.pagination-next:not(.disabled) a[rel="next"]');
     if (!nextBtn) break;
+
     const nextUrl = await nextBtn.getAttribute('href');
     if (!nextUrl) break;
 
     const fullUrl = `${ANTHURIUM_BASE_URL}${nextUrl}`;
     log(`➡️ Moving to: ${fullUrl}`);
+
     await page.goto(fullUrl, { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(12000);
     pageNum++;
@@ -625,56 +652,54 @@ async function scrapeAllPages(page) {
 
 // ===== MAIN SCRIPT =====
 (async () => {
-  const startTime = Date.now(); // ⏱️ Start timer
+  const startTime = Date.now();
 
   let browser = null;
   let authClient = null;
   let totalProductsScraped = 0;
 
   try {
-    // Initialize Google Sheets client early for status updates
     authClient = await authorize();
-
-    // Update status to "Running"
     await updateStatus(authClient, 'running', startTime);
 
-    // Launch browser
     browser = await chromium.launch({
-  headless: true,
-  args: [
-    '--disable-blink-features=AutomationControlled',
-    '--no-sandbox',
-    '--disable-setuid-sandbox',
-  ],
-});
+      headless: true,
+      args: [
+        '--disable-blink-features=AutomationControlled',
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+      ],
+    });
 
-const context = await browser.newContext({
-  viewport: { width: 1366, height: 768 },
-  userAgent:
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
-  locale: 'en-US',
-});
+    const context = await browser.newContext({
+      viewport: { width: 1366, height: 768 },
+      userAgent:
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
+      locale: 'en-US',
+    });
 
-const page = await context.newPage();
-page.setDefaultTimeout(120000);
+    const page = await context.newPage();
+    page.setDefaultTimeout(120000);
+
     log('🚀 Script started.');
 
     const packingDate = await readPackingDate(authClient);
+
     await login(page);
+
     await page.goto(`${ANTHURIUM_BASE_URL}/en_US/All-products/Flowers/c/Flowers`, {
       waitUntil: 'domcontentloaded',
+      timeout: 120000,
     });
     await page.waitForTimeout(3000);
     await closePopup(page);
 
-    // ===== SELECT DATE WITH SAFETY CHECK =====
     const dateSelected = await selectPackingDate(page, packingDate);
     if (!dateSelected) {
       log(`⚠️ Packing date ${packingDate} is disabled. Writing "No products found" and exiting.`);
       await writeHeaders(authClient);
       await writeProducts(authClient, [{ name: `No products found {${packingDate}}` }], true);
       await updateStatus(authClient, 'date-disabled', startTime);
-      await browser.close();
       log(`🏁 Script finished. Runtime: ${formatRuntime(Date.now() - startTime)}`);
       return;
     }
@@ -683,10 +708,10 @@ page.setDefaultTimeout(120000);
       .split(',')
       .map((u) => u.trim())
       .filter(Boolean);
+
     if (!urls.length) {
       log('⚠️ No URLs provided. Exiting.');
       await updateStatus(authClient, 'no-urls', startTime);
-      await browser.close();
       log(`🏁 Script finished. Runtime: ${formatRuntime(Date.now() - startTime)}`);
       return;
     }
@@ -696,20 +721,21 @@ page.setDefaultTimeout(120000);
 
     for (const url of urls) {
       log(`➡️ Scraping URL: ${url}`);
-      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 120000 });
       await page.waitForTimeout(3000);
       await closePopup(page);
 
-      let products = await scrapeAllPages(page);
+      const products = await scrapeAllPages(page);
       totalProductsScraped += products.length;
+
       await writeProducts(authClient, products, isFirstUrl);
       isFirstUrl = false;
+
       log(`🟢 Finished scraping URL: ${url} (${products.length} products).`);
     }
 
     log(`🎉 All URLs processed. Total products: ${totalProductsScraped}`);
 
-    // Update status with success or no-products
     if (totalProductsScraped > 0) {
       await updateStatus(authClient, 'success', startTime);
     } else {
@@ -720,10 +746,9 @@ page.setDefaultTimeout(120000);
   } catch (err) {
     log(`❌ ERROR: ${err.message}`);
 
-    // Update status with error
     if (authClient) {
       try {
-        await updateStatus(authClient, 'error', startTime, err.message?.substring(0, 50));
+        await updateStatus(authClient, 'error', startTime, err.message?.substring(0, 80));
       } catch (updateErr) {
         log(`❌ Failed to update error status: ${updateErr.message}`);
       }
