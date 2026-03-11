@@ -15,6 +15,8 @@
     "googleapis": "^150.0.1",
     "nearest-color": "^0.4.4",
     "node-cron": "^4.1.0",
-    "playwright": "^1.53.0"
+    "playwright": "^1.53.0",
+     "playwright-extra": "^4.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2"
   }
 }
