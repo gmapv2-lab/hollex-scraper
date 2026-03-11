@@ -17,30 +17,38 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout repository
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      # 2️⃣ Setup Node.js
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
+          cache: 'npm'
 
-      # 3️⃣ Install dependencies
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
-      # 4️⃣ Install Playwright browsers
-      - name: Install Playwright browsers
-        run: npx playwright install --force
+      - name: Install stealth packages
+        run: npm install playwright-extra puppeteer-extra-plugin-stealth
 
-      # 5️⃣ Create Google service account file from secret
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
       - name: Create Google credentials
+        shell: bash
         run: |
-          echo '${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}' > service-account.json
+          cat > service-account.json <<'EOF'
+          ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          EOF
 
-      # 6️⃣ Run scraper script
+      - name: Create session.json
+        shell: bash
+        run: |
+          cat > session.json <<'EOF'
+          ${{ secrets.SESSION_JSON }}
+          EOF
+
       - name: Run scraper script
         env:
           HOLEX_USERNAME: ${{ secrets.HOLEX_USERNAME }}
@@ -48,13 +56,14 @@ jobs:
           SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
           SHEET_NAME: ${{ secrets.SHEET_NAME }}
           LOGIN_URL: ${{ secrets.LOGIN_URL }}
+          ANTHURIUM_BASE_URL: ${{ secrets.ANTHURIUM_BASE_URL }}
+          CREDENTIALS_PATH: service-account.json
           LOG_PATH: scraper.log
           PACKING_DATE: ${{ github.event.inputs.packing_date }}
           URLS: ${{ github.event.inputs.urls }}
           GOOGLE_APPLICATION_CREDENTIALS: service-account.json
         run: node scrap.js
 
-      # 7️⃣ Trigger Apps Script WebApps
       - name: Trigger Apps Script WebApps
         run: |
           curl -L --post301 --post302 -X POST \
