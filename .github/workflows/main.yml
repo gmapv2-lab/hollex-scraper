@@ -17,30 +17,24 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # 2️⃣ Setup Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '18'
 
-      # 3️⃣ Install dependencies
       - name: Install dependencies
         run: npm ci
 
-      # 4️⃣ Install Playwright browsers
       - name: Install Playwright browsers
         run: npx playwright install --force
 
-      # 5️⃣ Create Google service account file from secret
       - name: Create Google credentials
         run: |
           echo '${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}' > service-account.json
 
-      # 6️⃣ Run scraper script
       - name: Run scraper script
         env:
           HOLEX_USERNAME: ${{ secrets.HOLEX_USERNAME }}
@@ -54,8 +48,19 @@ jobs:
           GOOGLE_APPLICATION_CREDENTIALS: service-account.json
         run: node scrap.js
 
-      # 7️⃣ Trigger Apps Script WebApps
+      - name: Upload debug artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scraper-debug
+          path: |
+            debug/
+            scraper.log
+            service-account.json
+          if-no-files-found: ignore
+
       - name: Trigger Apps Script WebApps
+        if: success()
         run: |
           curl -L --post301 --post302 -X POST \
             "https://script.google.com/macros/s/AKfycbyuL6Me8hEP1DReBwiUy-juvHQ-DNjXBwFjqUC3yMnRpC83eEDobckL6nhQVcZyc-Ds/exec" \
