@@ -305,10 +305,20 @@ async function login(page) {
 
   await usernameLocator.first().waitFor({ state: 'visible', timeout: 30000 });
   await usernameLocator.first().fill(USERNAME);
+log(`Username field count: ${await page.locator('#j_username').count()}`);
+log(`Password field count: ${await page.locator('#j_password').count()}`);
+await page.locator('#j_username').waitFor({ state: 'visible', timeout: 30000 });
+log('✅ Username field is visible');
+await page.fill('#j_username', USERNAME);
+log('✅ Username filled');
 
-  const passwordLocator = page.locator('#j_password');
-  await passwordLocator.first().waitFor({ state: 'visible', timeout: 30000 });
-  await passwordLocator.first().fill(PASSWORD);
+await page.locator('#j_password').waitFor({ state: 'visible', timeout: 30000 });
+log('✅ Password field is visible');
+await page.fill('#j_password', PASSWORD);
+log('✅ Password filled');
+
+await page.click('button.primary_button');
+log('✅ Login button clicked');
 
   const loginButton = page.locator('button.primary_button');
   await loginButton.first().waitFor({ state: 'visible', timeout: 30000 });
