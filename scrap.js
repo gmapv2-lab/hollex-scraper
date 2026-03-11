@@ -15,7 +15,7 @@ const CREDENTIALS_PATH = path.join(__dirname, process.env.CREDENTIALS_PATH);
 const USERNAME = process.env.HOLEX_USERNAME;
 const PASSWORD = process.env.HOLEX_PASSWORD;
 const LOGIN_URL = process.env.LOGIN_URL;
-const ANTHURIUM_BASE_URL = process.env.ANTHURIUM_BASE_URL;
+const ANTHURIUM_BASE_URL = 'https://shop.holex.com';
 const LOG_PATH = path.join(__dirname, process.env.LOG_PATH || 'scraper.log');
 const STATUS_CELL = 'F5'; // Status cell in _config sheet
 
@@ -554,9 +554,9 @@ async function scrapeAllPages(page) {
 
     const packingDate = await readPackingDate(authClient);
     await login(page);
-    await page.goto(`${ANTHURIUM_BASE_URL}/en_US/All-products/Flowers/c/Flowers`, {
-      waitUntil: 'domcontentloaded',
-    });
+    await page.goto('https://shop.holex.com/en_US/All-products/Flowers/c/Flowers', {
+  waitUntil: 'domcontentloaded',
+});
     await page.waitForTimeout(3000);
     await closePopup(page);
 
