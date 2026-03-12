@@ -261,12 +261,8 @@ async function autoScroll(page) {
 // ===== SELECT PACKING DATE =====
 async function selectPackingDate(page, dateStr) {
   log(`📅 Selecting packing date: ${dateStr}`);
-
-  const [monthRaw, dayRaw, yearRaw] = String(dateStr).split('/');
-  const month = String(monthRaw).padStart(2, '0');
-  const day = String(dayRaw).padStart(2, '0');
-  const year = String(yearRaw).trim();
-  const formattedDate = `${month}/${day}/${year}`;
+  const [month, day, year] = dateStr.split('/');
+  const formattedDate = `${String(month).padStart(2, '0')}/${String(day).padStart(2, '0')}/${year}`;
 
   const blockingBanner = await page.$(
     'div.alert, div.hl_notification, header.js-mainHeader .hlx_notification'
@@ -276,112 +272,44 @@ async function selectPackingDate(page, dateStr) {
     log('🧹 Removed a blocking alert/banner.');
   }
 
-  const calendarIcon = page.locator('div.js-custom_datepicker i.js-calendar_icon').first();
-  if (!(await calendarIcon.count())) {
+  const calendarIcon = await page.$('div.js-custom_datepicker i.js-calendar_icon');
+  if (!calendarIcon) {
     log('❌ Calendar icon not found!');
     return false;
   }
-
   await calendarIcon.click({ timeout: 5000 });
   log('🟢 Calendar icon clicked.');
 
-  // Wait until at least one calendar table becomes actually visible
-  await page.waitForFunction(() => {
-    const tables = Array.from(
-      document.querySelectorAll('div.js-custom_datepicker table.table-condensed, div.js-custom_datepicker table')
-    );
-
-    return tables.some((el) => {
-      const style = window.getComputedStyle(el);
-      const rect = el.getBoundingClientRect();
-      return (
-        style.display !== 'none' &&
-        style.visibility !== 'hidden' &&
-        rect.width > 0 &&
-        rect.height > 0
-      );
-    });
-  }, { timeout: 15000 });
-
-  async function getVisibleCalendar() {
-    const tables = page.locator(
-      'div.js-custom_datepicker table.table-condensed, div.js-custom_datepicker table'
-    );
-    const count = await tables.count();
-
-    for (let i = 0; i < count; i++) {
-      const table = tables.nth(i);
-      if (await table.isVisible()) {
-        return table;
-      }
-    }
-    return null;
-  }
-
-  let visibleCalendar = await getVisibleCalendar();
-  if (!visibleCalendar) {
-    log('❌ No visible calendar found after clicking calendar icon.');
-    return false;
-  }
-
-  log('✅ Visible calendar found.');
+  await page.waitForSelector('div.js-custom_datepicker table', { timeout: 15000 });
 
   async function getCalendarMonthYear() {
-    visibleCalendar = await getVisibleCalendar();
-    if (!visibleCalendar) return '';
-
-    const container = visibleCalendar.locator('xpath=ancestor::div[contains(@class,"js-custom_datepicker")]').first();
-    const header = container.locator('th.picker-switch').first();
-
-    if (await header.count()) {
-      return (await header.innerText()).trim();
-    }
-    return '';
+    const header = await page.$('div.js-custom_datepicker th.picker-switch');
+    return header ? (await header.innerText()).trim() : '';
   }
 
   const targetMonthYear = new Date(`${year}-${month}-01`).toLocaleString('en-US', {
     month: 'long',
     year: 'numeric',
   });
-
   for (let i = 0; i < 12; i++) {
     const currentHeader = await getCalendarMonthYear();
-    log(`📆 Calendar showing: ${currentHeader || 'Unknown'} | Target: ${targetMonthYear}`);
-
     if (currentHeader === targetMonthYear) break;
-
-    visibleCalendar = await getVisibleCalendar();
-    if (!visibleCalendar) {
-      log('❌ Visible calendar disappeared while navigating months.');
-      return false;
-    }
-
-    const container = visibleCalendar.locator('xpath=ancestor::div[contains(@class,"js-custom_datepicker")]').first();
-    const nextBtn = container.locator('th.next').first();
-
-    if (!(await nextBtn.count())) {
+    const nextBtn = await page.$('div.js-custom_datepicker th.next');
+    if (!nextBtn) {
       log(`❌ Cannot find next month button. Calendar stuck at ${currentHeader}`);
       return false;
     }
-
     await nextBtn.click();
     await page.waitForTimeout(500);
   }
 
-  visibleCalendar = await getVisibleCalendar();
-  if (!visibleCalendar) {
-    log('❌ Visible calendar not found before selecting date.');
+  const dateCell = await page.$(`div.js-custom_datepicker td[data-day="${formattedDate}"]`);
+  if (!dateCell) {
+    log(`❌ Date cell for ${formattedDate} not found!`);
     return false;
   }
 
-  const dateCell = visibleCalendar.locator(`td[data-day="${formattedDate}"]`).first();
-
-  if (!(await dateCell.count())) {
-    log(`❌ Date cell for ${formattedDate} not found in visible calendar!`);
-    return false;
-  }
-
-  const classList = (await dateCell.getAttribute('class')) || '';
+  const classList = await dateCell.getAttribute('class');
   if (classList.includes('disabled')) {
     log(`❌ Date ${formattedDate} is disabled and cannot be selected.`);
     return false;
@@ -391,13 +319,11 @@ async function selectPackingDate(page, dateStr) {
   log(`✅ Date selected: ${formattedDate}`);
 
   try {
-    const continueBtn = page.locator('button.confirm_select_date').first();
-    if (await continueBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+    const continueBtn = await page.waitForSelector('button.confirm_select_date', { timeout: 3000 });
+    if (continueBtn) {
       await continueBtn.click();
       log('✅ Confirmed date selection by clicking Continue.');
       await page.waitForTimeout(2000);
-    } else {
-      log('ℹ️ No confirmation popup appeared.');
     }
   } catch (err) {
     log('ℹ️ No confirmation popup appeared.');
@@ -405,6 +331,7 @@ async function selectPackingDate(page, dateStr) {
 
   return true;
 }
+
 // ===== SCRAPING PRODUCTS =====
 async function scrapeProducts(page) {
   const results = [];
