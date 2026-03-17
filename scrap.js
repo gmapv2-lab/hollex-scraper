@@ -554,6 +554,7 @@ async function scrapeAllPages(page) {
 
     const packingDate = await readPackingDate(authClient);
     await login(page);
+    await page.reload({ waitUntil: 'domcontentloaded' }); // 👈 add this
     await page.goto('https://shop.holex.com/en_US/All-products/Flowers/c/Flowers', {
   waitUntil: 'domcontentloaded',
 });
