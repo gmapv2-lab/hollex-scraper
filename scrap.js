@@ -280,23 +280,12 @@ async function selectPackingDate(page, dateStr) {
   await calendarIcon.click({ timeout: 5000 });
   log('🟢 Calendar icon clicked.');
  await page.waitForTimeout(9000);
-await page.waitForFunction(
-  () => {
-    const tables = document.querySelectorAll('div.js-custom_datepicker table');
-    return Array.from(tables).some(
-      (el) => el.offsetParent !== null && el.offsetWidth > 0
-    );
-  },
-  { timeout: 15000 }
-);
+  await page.waitForSelector('div.js-custom_datepicker table', { timeout: 15000 });
 
   async function getCalendarMonthYear() {
-  return await page.evaluate(() => {
-    const headers = document.querySelectorAll('div.js-custom_datepicker th.picker-switch');
-    const visible = Array.from(headers).find(el => el.offsetParent !== null && el.offsetWidth > 0);
-    return visible ? visible.textContent.trim() : '';
-  });
-}
+    const header = await page.$('div.js-custom_datepicker th.picker-switch');
+    return header ? (await header.innerText()).trim() : '';
+  }
 
   const targetMonthYear = new Date(`${year}-${month}-01`).toLocaleString('en-US', {
     month: 'long',
@@ -314,10 +303,7 @@ await page.waitForFunction(
     await page.waitForTimeout(500);
   }
 
- const dateCell = await page.evaluateHandle((date) => {
-  const cells = document.querySelectorAll(`div.js-custom_datepicker td[data-day="${date}"]`);
-  return Array.from(cells).find(el => el.offsetParent !== null) || null;
-}, formattedDate);
+  const dateCell = await page.$(`div.js-custom_datepicker td[data-day="${formattedDate}"]`);
   if (!dateCell) {
     log(`❌ Date cell for ${formattedDate} not found!`);
     return false;
